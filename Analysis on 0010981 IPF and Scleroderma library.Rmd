@@ -1,0 +1,128 @@
+---
+title: "IPF Trial run analysis on slide 0010981"
+output: html_notebook: default
+---
+
+This is an IPF slide that was run on Xenium week of 10/27/23 and the core pre-designed library for some reason didn't populate, only the 100 custom genes did.
+
+
+# Environment
+```{r}
+library(Seurat)
+library(tidyverse)
+```
+
+# Read in Xenium 
+```{r}
+ipf2.xen <- LoadXenium('output-XETG00143__0010981__Region_1__20231104__002020/')
+```
+
+# Identify cells as if normal single cell
+
+An important caveat to this dataset is that a portion of these cells are from scleroderma lung. 
+
+## First pass
+```{r}
+DefaultAssay(ipf2.xen) <- 'Xenium'
+ipf2.xen <- NormalizeData(ipf2.xen)
+ipf2.xen <- FindVariableFeatures(ipf2.xen)
+ipf2.xen <- ScaleData(ipf2.xen)
+ipf2.xen <- RunPCA(ipf2.xen, npcs = 30, features = rownames(ipf2.xen))
+ipf2.xen <- RunUMAP(ipf2.xen, dims = 1:30)
+ipf2.xen <- FindNeighbors(ipf2.xen, reduction = "pca", dims = 1:30)
+
+```
+```{r, fig.height=8, fig.width=6}
+FeaturePlot(ipf2.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe", 'AGR2','ITGB6'), min.cutoff='q25', max.cutoff='q90')
+FeaturePlot(ipf2.xen, features = c("PI16", "ABCA3", "XBP1", "TNFAIP3", "WNT5A", "IFITM1"), min.cutoff='q25', max.cutoff='q90')
+FeaturePlot(ipf2.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "KRT8", "CLDN4"), min.cutoff='q25', max.cutoff='q90')
+```
+```{r}
+ImageFeaturePlot(ipf2.xen, features = c("KRT8", "CTHRC1", "CLDN4", "ITGB6"), max.cutoff = c(7,
+    7, 7, 7), size = 0.75, cols = c("white", "red"))
+```
+
+See if we can tell where the tissue pieces are based on coordinates
+```{r}
+VlnPlot(ipf2.xen, features=c('x','y'))
+```
+
+
+
+## Subset somewhat strictly on feature count
+On the theory that if there was only one feature, but it had counts, that is probably still interpretable.
+```{r}
+ipf2.filtered.xen <- subset(ipf2.xen, subset=nCount_Xenium>5)
+```
+```{r, fig.width=6, fig.height=8}
+FeaturePlot(ipf2.filtered.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe", 'AGR2','ITGB6'), min.cutoff='q25', max.cutoff='q90')
+FeaturePlot(ipf2.filtered.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "KRT8", "CLDN4"), min.cutoff='q25', max.cutoff='q90')
+```
+
+```{r}
+ipf2.filtered.xen <- NormalizeData(ipf2.filtered.xen)
+ipf2.filtered.xen <- FindVariableFeatures(ipf2.filtered.xen)
+ipf2.filtered.xen <- ScaleData(ipf2.filtered.xen)
+ipf2.filtered.xen <- RunPCA(ipf2.filtered.xen, features = rownames(ipf2.filtered.xen))
+ipf2.filtered.xen <- RunUMAP(ipf2.filtered.xen, dims = 1:30)
+```
+```{r, fig.width=6, fig.height=8}
+FeaturePlot(ipf2.filtered.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf2.filtered.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "TNFAIP3", "IFITM1"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf2.filtered.xen, features = c("AGR2", "ITGB6", "XBP1", "ABCA3", "KRT8", "CLDN4"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf2.filtered.xen, features = c("EPCAM", "IRF1", "VEGFA", "GDF15", "FKBP5", "PDGFRA"), min.cutoff='q1', max.cutoff='q90')
+```
+
+
+
+## Slot names back into the main library
+
+```{r}
+# default identity, the cells that were excluded based on low counts.
+ipf2.xen$named_clusters <- 'Low Count'
+# Convert assignments in subset to vector (not factor)
+clusterIDs <- as.character(ipf2.filtered.xen$named_clusters)
+names(clusterIDs) <- names(ipf2.filtered.xen$named_clusters)
+# replace elements of the superset based on name in the subset
+ipf2.xen$named_clusters[names(clusterIDs)] <- clusterIDs
+# convert superset back to factor
+ipf2.xen$named_clusters <- as.factor(ipf2.xen$named_clusters)
+```
+Break down the assignments:
+```{r}
+ipf2.xen@meta.data %>% group_by(named_clusters) %>% summarise(no_rows=length(named_clusters))
+```
+Update saved object
+```{r}
+save(ipf2.xen, file='ipf2.xen.RObj')
+```
+
+# Examine data as if spatial
+
+## Generate assignments file for Xenium Explorer
+For version 1.2.0, the instructons say:
+
+"Visualize custom cells groups in Xenium Explorer by importing a CSV file specifying cell ids and corresponding group names. Build a CSV file containing each cell id in the first column and the group the cell should be assigned to in the second column. A cell may only be assigned to one group. Not all cells in the dataset need to be included.
+
+Ensure the columns have headers named “cell_id” and “group”."
+
+This is basically the named_clusters list with a header and saved as a CSV.
+
+```{r}
+scratch <- tibble(cell_id = names(ipf2.xen$named_clusters),
+                      group = ipf2.xen$named_clusters)
+write.csv(scratch, 'Seurat_named_clusters.csv')
+```
+
+## Imaging within Seurat
+Found a region within Xenium explorer and figured the coordinates.
+
+```{r}
+cropped.coords <- Crop(ipf2.xen[["fov"]], x = c(2150, 2550), y = c(5650, 5950), coords = "plot")
+ipf2.xen[["zoom"]] <- cropped.coords
+# visualize cropped area with cell segmentations & selected molecules
+DefaultBoundary(ipf2.xen[["zoom"]]) <- "segmentation"
+ImageDimPlot(ipf2.xen, fov = "zoom", axes = TRUE, border.color = "white", border.size = 0.1, cols = "polychrome",
+    coord.fixed = FALSE, molecules = c("ITGB6", "GDF15", "CTHRC1", "ABCA3", "CLDN4"), nmols = 10000)
+```
+
