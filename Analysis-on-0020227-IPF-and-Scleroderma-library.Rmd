@@ -1,0 +1,188 @@
+---
+title: "IPF Trial run analysis on slide 0020227"
+output:
+  github_document:
+    toc: true
+  html_notebook:
+    toc: true
+---
+
+This is a slide that was run in December 2023. The slide includes one section from the same block (the "good" block) done with the limited library on 0010972 that gave some decent data. One triangular piece is a scleroderma lung.
+
+# Environment
+```{r}
+library(Seurat)
+library(tidyverse)
+```
+
+# Read in Xenium 
+```{r}
+ipf3.xen <- LoadXenium('output-XETG00143__0020227__Region_1__20231214__022306/')
+```
+
+# Identify cells as if normal single cell
+
+An important caveat to this dataset is that a portion of these cells are from scleroderma lung. 
+
+## First pass
+```{r}
+DefaultAssay(ipf3.xen) <- 'Xenium'
+ipf3.xen <- NormalizeData(ipf3.xen)
+ipf3.xen <- FindVariableFeatures(ipf3.xen)
+ipf3.xen <- ScaleData(ipf3.xen)
+ipf3.xen <- RunPCA(ipf3.xen, npcs = 30, features = rownames(ipf3.xen))
+ipf3.xen <- RunUMAP(ipf3.xen, dims = 1:30)
+ipf3.xen <- FindNeighbors(ipf3.xen, reduction = "pca", dims = 1:30)
+
+```
+```{r}
+VlnPlot(ipf3.xen, pt.size = 0,
+        features=c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe"))
+FeatureScatter(ipf3.xen, "nFeature_Xenium", "nCount_Xenium")
+```
+
+```{r, fig.height=8, fig.width=6}
+FeaturePlot(ipf3.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe", 'AGR2','ITGB6'), min.cutoff='q25', max.cutoff='q90')
+FeaturePlot(ipf3.xen, features = c("PI16", "ABCA3", "XBP1", "TNFAIP3", "WNT5A", "IFITM1"), min.cutoff='q25', max.cutoff='q90')
+FeaturePlot(ipf3.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "KRT8", "GDF15"), min.cutoff='q25', max.cutoff='q90')
+```
+```{r}
+ImageFeaturePlot(ipf3.xen, features = c("KRT8", "CTHRC1", "GDF15", "ITGB6"), max.cutoff = c(7,
+    7, 7, 7), size = 0.75, cols = c("white", "red"))
+```
+
+
+
+## Subset somewhat strictly on feature count
+On the theory that if there was only few features, but they had counts, it is probably still interpretable.
+```{r}
+ipf3.filtered.xen <- subset(ipf3.xen, subset=nCount_Xenium>20 & nFeature_Xenium>4)
+```
+```{r, fig.width=6, fig.height=8}
+FeaturePlot(ipf3.filtered.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe", 'AGR2','ITGB6'), min.cutoff='q25', max.cutoff='q90')
+FeaturePlot(ipf3.filtered.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "KRT8", "CLDN4"), min.cutoff='q25', max.cutoff='q90')
+```
+How manu cells did we filter out?
+```{r}
+print('original dataset:')
+print(ncol(ipf3.xen))
+print('filtered dataset:')
+print(ncol(ipf3.filtered.xen))
+```
+
+
+## Try to identify clusters of interesting cells
+```{r}
+ipf3.filtered.xen <- NormalizeData(ipf3.filtered.xen)
+ipf3.filtered.xen <- FindVariableFeatures(ipf3.filtered.xen)
+ipf3.filtered.xen <- ScaleData(ipf3.filtered.xen)
+ipf3.filtered.xen <- RunPCA(ipf3.filtered.xen, features = rownames(ipf3.filtered.xen))
+ipf3.filtered.xen <- RunUMAP(ipf3.filtered.xen, dims = 1:30)
+```
+```{r}
+ElbowPlot(ipf3.filtered.xen)
+DimHeatmap(ipf3.filtered.xen, dims = 1:3, cells = 100, balanced = TRUE)
+DimHeatmap(ipf3.filtered.xen, dims = 4:6, cells = 100, balanced = TRUE)
+DimHeatmap(ipf3.filtered.xen, dims = 7:9, cells = 100, balanced = TRUE)
+```
+
+```{r}
+# modification to reduce cluster number. i think the sparsity of data means that pruned edges leads to more communities.
+ipf3.filtered.xen <- FindNeighbors(ipf3.filtered.xen, reduction='pca', dims=1:17, prune.SNN=0) 
+ipf3.filtered.xen <- FindClusters(ipf3.filtered.xen, resolution = 0.4)
+```
+```{r}
+DimPlot(ipf3.filtered.xen)
+```
+
+
+```{r, fig.width=6, fig.height=8}
+FeaturePlot(ipf3.filtered.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf3.filtered.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "TNFAIP3", "IFITM1"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf3.filtered.xen, features = c("AGR2", "ITGB6", "XBP1", "ABCA3", "KRT8", "CLDN4"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf3.filtered.xen, features = c("EPCAM", "IRF1", "VEGFA", "GDF15", "FKBP5", "PDGFRA"), min.cutoff='q1', max.cutoff='q90')
+```
+# Seurat built-in niche analysis
+
+```{r}
+ipf3.filtered.xen <- BuildNicheAssay(object = ipf3.filtered.xen, fov = "fov", group.by = "seurat_clusters",
+    niches.k = 10, neighbors.k = 15)
+gc()
+```
+```{r}
+table(ipf3.filtered.xen$seurat_clusters, ipf1.xen$niches)
+```
+
+
+
+
+```{r}
+ipf1.filtered.xen <- RenameIdents(object=ipf1.filtered.xen,
+                                  `0`='Unidentified',
+                                  `1`='Fib:Alveolar',
+                                  `2`='Fib:Fibrotic',
+                                  `3`='DATP:NOS',
+                                  `4`='Macrophage?',
+                                  `5`='Fib:Alv/Inflammed',
+                                  `6`='DATP:Fibrotic',
+                                  `7`='Airway-like',
+                                  `8`='Fib:NOS',
+                                  `9`='Fib:NOS',
+                                  `10`='Fib:NOS')
+ipf1.filtered.xen$named_clusters <- Idents(ipf1.filtered.xen)
+```
+```{r}
+DimPlot(ipf1.filtered.xen, group.by = 'named_clusters', label=T)
+```
+
+## Slot names back into the main library
+
+```{r}
+# default identity, the cells that were excluded based on low counts.
+ipf3.xen$named_clusters <- 'Low Count'
+# Convert assignments in subset to vector (not factor)
+clusterIDs <- as.character(ipf3.filtered.xen$named_clusters)
+names(clusterIDs) <- names(ipf3.filtered.xen$named_clusters)
+# replace elements of the superset based on name in the subset
+ipf3.xen$named_clusters[names(clusterIDs)] <- clusterIDs
+# convert superset back to factor
+ipf3.xen$named_clusters <- as.factor(ipf3.xen$named_clusters)
+```
+Break down the assignments:
+```{r}
+ipf3.xen@meta.data %>% group_by(named_clusters) %>% summarise(no_rows=length(named_clusters))
+```
+Update saved object
+```{r}
+save(ipf3.xen, file='ipf3.xen.RObj')
+```
+
+# Examine data as if spatial
+
+## Generate assignments file for Xenium Explorer
+For version 1.2.0, the instructons say:
+
+"Visualize custom cells groups in Xenium Explorer by importing a CSV file specifying cell ids and corresponding group names. Build a CSV file containing each cell id in the first column and the group the cell should be assigned to in the second column. A cell may only be assigned to one group. Not all cells in the dataset need to be included.
+
+Ensure the columns have headers named “cell_id” and “group”."
+
+This is basically the named_clusters list with a header and saved as a CSV.
+
+```{r}
+scratch <- tibble(cell_id = names(ipf3.xen$named_clusters),
+                      group = ipf3.xen$named_clusters)
+write.csv(scratch, 'Seurat_named_clusters.csv')
+```
+
+## Imaging within Seurat
+Found a region within Xenium explorer and figured the coordinates.
+
+```{r}
+cropped.coords <- Crop(ipf3.xen[["fov"]], x = c(2150, 2550), y = c(5650, 5950), coords = "plot")
+ipf3.xen[["zoom"]] <- cropped.coords
+# visualize cropped area with cell segmentations & selected molecules
+DefaultBoundary(ipf3.xen[["zoom"]]) <- "segmentation"
+ImageDimPlot(ipf3.xen, fov = "zoom", axes = TRUE, border.color = "white", border.size = 0.1, cols = "polychrome",
+    coord.fixed = FALSE, molecules = c("ITGB6", "GDF15", "CTHRC1", "ABCA3", "CLDN4"), nmols = 10000)
+```
+

@@ -1,0 +1,465 @@
+---
+title: "IPF Trial run analysis on slide 0010972"
+output:
+  github_document:
+    toc: true
+  html_notebook:
+    toc: true
+---
+
+This is an IPF slide that was run on Xenium week of 10/27/23 and the core pre-designed library for some reason didn't populate, only the 100 custom genes did.
+
+# Environment
+```{r, results=FALSE}
+library(Seurat)
+library(tidyverse)
+```
+
+# Read in Xenium 
+```{r}
+ipf1.xen <- LoadXenium('output-XETG00143__0010972__lung__20231025__000223/')
+```
+
+# Identify cells as if normal single cell
+Bceause of the core library fail, there are only 100 genes with anything close to meaningful data. 
+```{r}
+genes_to_use <- read.csv('limited_panel.csv')$Gene
+```
+
+## First pass
+```{r}
+DefaultAssay(ipf1.xen) <- 'Xenium'
+ipf1.xen <- NormalizeData(ipf1.xen)
+ipf1.xen <- FindVariableFeatures(ipf1.xen)
+ipf1.xen <- ScaleData(ipf1.xen, features=genes_to_use)
+ipf1.xen <- RunPCA(ipf1.xen, npcs = 30, features = genes_to_use)
+ipf1.xen <- RunUMAP(ipf1.xen, dims = 1:30)
+ipf1.xen <- FindNeighbors(ipf1.xen, reduction = "pca", dims = 1:30)
+
+```
+```{r, fig.height=8, fig.width=6}
+FeaturePlot(ipf1.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe", 'AGR2','ITGB6'), min.cutoff='q25', max.cutoff='q90')
+FeaturePlot(ipf1.xen, features = c("PI16", "ABCA3", "XBP1", "TNFAIP3", "WNT5A", "IFITM1"), min.cutoff='q25', max.cutoff='q90')
+FeaturePlot(ipf1.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "KRT8", "CLDN4"), min.cutoff='q25', max.cutoff='q90')
+```
+Clearly one issue here is that marker+ cells are smeared across multiple regions of the UMAP. Probably because we are trying too hard to separate with too few genes, especially since most of the 100 gene panel is minimally informative.
+Two strategies to consider, 1, reducing number of vectors used, or 2, forcing Seurat to use the favorite genes. Favor 1 if it works, in case there is some hidden informative marker we were not aware of.
+
+## Reduce PCA number
+```{r}
+ElbowPlot(ipf1.xen)
+```
+I mean yeah, maybe 10, but honestly probably 5.
+
+```{r, fig.width=6, fig.height=8}
+DimHeatmap(ipf1.xen, dims = 1:12, cells = 1000, balanced = TRUE)
+```
+All our favorite genes show up by PC6. 
+Kind of curious about these interferon genes including OAS1.
+```{r}
+FeaturePlot(ipf1.xen, features = c("OAS1", "IRF1", "VEGFA", "ITGA1", "FKBP5", "FOXA2"), min.cutoff='q25', max.cutoff='q90')
+
+```
+```{r}
+ipf1.xen <- RunUMAP(ipf1.xen, dims = 1:5)
+```
+```{r, fig.width=6, fig.height=8}
+FeaturePlot(ipf1.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe", 'AGR2','ITGB6'), min.cutoff='q25', max.cutoff='q90')
+FeaturePlot(ipf1.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "KRT8", "CLDN4"), min.cutoff='q25', max.cutoff='q90')
+```
+Annoyingly what this actually illustrates is that a lot of noise is driven by low feature cells, which is entirely sensible.
+```{r, eval=FALSE}
+save(ipf1.xen, file='ipf1.xen.RObj')
+```
+
+
+## Subset somewhat strictly on feature count
+On the theory that if there was only one feature, but it had 10 counts, that is probably still interpretable.
+```{r}
+ipf1.filtered.xen <- subset(ipf1.xen, subset=nCount_Xenium>10)
+```
+```{r, fig.width=6, fig.height=8}
+FeaturePlot(ipf1.filtered.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe", 'AGR2','ITGB6'), min.cutoff='q25', max.cutoff='q90')
+FeaturePlot(ipf1.filtered.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "KRT8", "CLDN4"), min.cutoff='q25', max.cutoff='q90')
+```
+
+```{r}
+ipf1.filtered.xen <- NormalizeData(ipf1.filtered.xen)
+ipf1.filtered.xen <- FindVariableFeatures(ipf1.filtered.xen)
+ipf1.filtered.xen <- ScaleData(ipf1.filtered.xen, features=genes_to_use)
+ipf1.filtered.xen <- RunPCA(ipf1.filtered.xen, npcs = 6, features = genes_to_use)
+ipf1.filtered.xen <- RunUMAP(ipf1.filtered.xen, dims = 1:5)
+```
+```{r, fig.width=6, fig.height=8}
+FeaturePlot(ipf1.filtered.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf1.filtered.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "TNFAIP3", "IFITM1"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf1.filtered.xen, features = c("AGR2", "ITGB6", "XBP1", "ABCA3", "KRT8", "CLDN4"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf1.filtered.xen, features = c("OAS1", "IRF1", "VEGFA", "GDF15", "FKBP5", "FOXA2"), min.cutoff='q1', max.cutoff='q90')
+```
+```{r}
+# modification to reduce cluster number. i think the sparsity of data means that pruned edges leads to more communities.
+ipf1.filtered.xen <- FindNeighbors(ipf1.filtered.xen, reduction='pca', dims=1:5, prune.SNN=0) 
+ipf1.filtered.xen <- FindClusters(ipf1.filtered.xen, resolution = 0.4)
+```
+```{r}
+DimPlot(ipf1.filtered.xen, group.by = 'seurat_clusters')
+```
+```{r}
+key_markers <- c("COL1A1", "CTHRC1", "INMT", "SCN7A","PI16", "IFITM1","TNFAIP3", "WNT5A",'ITGB6','LGALS3',"KRT8", "CLDN4", "ABCA3",'GDF15', "XBP1",'OAS1')
+DotPlot(ipf1.filtered.xen, features=key_markers) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+I can't tell if 0, 1 or 5 are more inflammatory, among fibroblasts.
+```{r}
+VlnPlot(subset(ipf1.filtered.xen, idents=c(0,1,5)), features=c('COL1A1','IFITM1', 'TNFAIP3','IRF1','OAS1'))
+```
+I think 5 is a bit more...
+Therefore rename as follows
+```{r}
+ipf1.filtered.xen <- RenameIdents(object=ipf1.filtered.xen,
+                                  `0`='Unidentified',
+                                  `1`='Fib:Alveolar',
+                                  `2`='Fib:Fibrotic',
+                                  `3`='DATP:NOS',
+                                  `4`='Macrophage?',
+                                  `5`='Fib:Alv/Inflammed',
+                                  `6`='DATP:Fibrotic',
+                                  `7`='Airway-like',
+                                  `8`='Fib:NOS',
+                                  `9`='Fib:NOS',
+                                  `10`='Fib:NOS')
+ipf1.filtered.xen$named_clusters <- Idents(ipf1.filtered.xen)
+```
+```{r}
+DimPlot(ipf1.filtered.xen, group.by = 'named_clusters', label=T)
+```
+
+Marker discovery for these groups. Just in case there is information hiding in the asthma genes.
+```{r}
+all.markers <- FindAllMarkers(ipf1.filtered.xen, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+all.markers %>%
+    group_by(cluster) %>%
+    top_n(n = 10, wt = avg_log2FC) -> top10
+DoHeatmap(ipf1.filtered.xen, features = top10$gene) + NoLegend()
+```
+
+
+
+```{r, eval=FALSE}
+save(ipf1.filtered.xen, file='ipf1.filtered.xen.RObj')
+```
+
+
+## Slot names back into the main library
+
+```{r}
+# default identity, the cells that were excluded based on low counts.
+ipf1.xen$named_clusters <- 'Low Count'
+# Convert assignments in subset to vector (not factor)
+clusterIDs <- as.character(ipf1.filtered.xen$named_clusters)
+names(clusterIDs) <- names(ipf1.filtered.xen$named_clusters)
+# replace elements of the superset based on name in the subset
+ipf1.xen$named_clusters[names(clusterIDs)] <- clusterIDs
+# convert superset back to factor
+ipf1.xen$named_clusters <- as.factor(ipf1.xen$named_clusters)
+```
+Break down the assignments:
+```{r}
+ipf1.xen@meta.data %>% group_by(named_clusters) %>% summarise(no_rows=length(named_clusters))
+```
+Update saved object
+```{r, eval = FALSE}
+save(ipf1.xen, file='ipf1.xen.RObj')
+```
+
+# Examine data as if spatial
+
+## Generate assignments file for Xenium Explorer
+For version 1.2.0, the instructons say:
+
+"Visualize custom cells groups in Xenium Explorer by importing a CSV file specifying cell ids and corresponding group names. Build a CSV file containing each cell id in the first column and the group the cell should be assigned to in the second column. A cell may only be assigned to one group. Not all cells in the dataset need to be included.
+
+Ensure the columns have headers named “cell_id” and “group”."
+
+This is basically the named_clusters list with a header and saved as a CSV.
+
+```{r}
+scratch <- tibble(cell_id = names(ipf1.xen$named_clusters),
+                      group = ipf1.xen$named_clusters)
+write.csv(scratch, 'Seurat_named_clusters.csv')
+```
+
+## Imaging within Seurat
+Found a region within Xenium explorer and figured the coordinates.
+
+```{r, fig.width=6,fig.height=6}
+cropped.coords <- Crop(ipf1.xen[["fov"]], y = c(2150, 2750), x = c(5650, 6350), coords = "plot")
+ipf1.xen[["fibroblastic1"]] <- cropped.coords
+# visualize cropped area with cell segmentations & selected molecules
+DefaultBoundary(ipf1.xen[["fibroblastic1"]]) <- "segmentation"
+ImageDimPlot(ipf1.xen, fov='fibroblastic1',group.by = 'named_clusters', axes = TRUE) 
+ImageDimPlot(ipf1.xen, fov = "fibroblastic1", axes = TRUE, border.color = "white", border.size = 0.1, cols = "polychrome",
+    coord.fixed = FALSE, molecules = c("ITGB6", "GDF15", "CTHRC1", "ABCA3", "CLDN4"), nmols = 10000)
+ImageFeaturePlot(ipf1.xen, fov='fibroblastic1',features=c("ITGB6"), axes = TRUE)
+ImageFeaturePlot(ipf1.xen, fov='fibroblastic1',features=c("GDF15"), axes = TRUE)
+ImageFeaturePlot(ipf1.xen, fov='fibroblastic1',features=c("CTHRC1"), axes = TRUE)
+
+```
+```{r, fig.width=6,fig.height=6}
+cropped.coords <- Crop(ipf1.xen[["fov"]], y = c(4500, 5100), x = c(4900, 5600), coords = "plot")
+ipf1.xen[["alveolar1"]] <- cropped.coords
+# visualize cropped area with cell segmentations & selected molecules
+DefaultBoundary(ipf1.xen[["alveolar1"]]) <- "segmentation"
+ImageDimPlot(ipf1.xen, fov='alveolar1',group.by = 'named_clusters', axes = TRUE) 
+ImageDimPlot(ipf1.xen, fov = "alveolar1", axes = TRUE, border.color = "white", border.size = 0.1, cols = "polychrome",
+    coord.fixed = FALSE, molecules = c("ITGB6", "GDF15", "CTHRC1", "ABCA3", "CLDN4"), nmols = 10000)
+ImageFeaturePlot(ipf1.xen, fov='alveolar1',features=c("ITGB6"), axes = TRUE)
+ImageFeaturePlot(ipf1.xen, fov='alveolar1',features=c("GDF15"), axes = TRUE)
+ImageFeaturePlot(ipf1.xen, fov='alveolar1',features=c("CTHRC1"), axes = TRUE)
+
+```
+
+## Niche analysis per Seurat
+Supposedly able to learn what cell groupings might be occurring.
+```{r}
+ipf1.xen <- BuildNicheAssay(object = ipf1.xen, fov = "fov", group.by = "named_clusters",
+    niches.k = 10, neighbors.k = 15)
+gc()
+```
+Update saved object
+```{r, eval=FALSE}
+save(ipf1.xen, file='ipf1.xen.RObj')
+```
+
+```{r}
+table(ipf1.xen$named_clusters, ipf1.xen$niches)
+```
+```{r}
+ImageDimPlot(ipf1.xen,fov='fibroblastic1' , group.by = "niches", size = 1.5)
+ImageDimPlot(ipf1.xen,fov='alveolar1' , group.by = "niches", size = 1.5)
+```
+Niche analysis seems to find mostly homotypic niches, i.e., THE EPITHELIUM or THE INTERSTITIUM. Not sure how to make it find heterotypic regions or ask the simple question of where a niche tends to be relative to another.
+
+## Cell radius questions (manual)
+Many questions which are of the form, Given a specific cell (or cell type), what cells are within a specified radius and what kinds of cells are they.
+
+In general this seems like a question for a kd-tree which is of fortunately low dimensionality (x and y) and there are off the shelf packages for dealing with it, mostly overkill because it is intended for high-dimensional data, but at least presumably fast.
+
+```{r}
+# Some kludging here to generate a matrix with rownames = cell names
+centroids <- ipf1.xen@images$fov$centroids@coords
+rownames(centroids) <- ipf1.xen@images$fov$centroids@cells # pull these directly from the centroids object
+head(centroids)
+# Force cell name order to be the same as in the Seurat object (probably is,  but won't hurt)
+centroids <- centroids[Cells(ipf1.xen),]
+head(centroids)
+```
+
+DivingIntoGeneticsAndGenomics points out that dbscan is a good package for doing the kd-tree.
+```{r}
+library(dbscan)
+radius=100 # same units as the coordinates, typically microns)
+nn <- frNN(x=centroids,eps=radius)
+head(nn$id, n=2)
+```
+```{r}
+# Verify cells are still in the same order
+all.equal(colnames(ipf1.xen), names(nn$id))
+```
+```{r}
+# Convert the frNN object into a dataframe
+nn_df <- stack(nn$id)
+nn_df$dist <- stack(nn$dist)$values
+head(nn_df)
+# values are the indices in names(xenium object) so get target cells' names and annotations
+nn_df$neighbor <- Cells(ipf1.xen)[nn_df$values]
+# Cluster ID
+cluster_ids<- ipf1.xen$named_clusters %>% unname()
+nn_df$ind_cluster <- cluster_ids[nn_df$ind]
+nn_df$neighbor_cluster <- cluster_ids[nn_df$values]
+# Niche ID
+niche_ids<- ipf1.xen$niches %>% unname()
+nn_df$ind_niche <- niche_ids[nn_df$ind]
+nn_df$neighbor_niche <- niche_ids[nn_df$values]
+# look
+head(nn_df)
+```
+### For types of DATPs, characterize fibrotic fibroblasts within radius
+I think this can all be done with tidyverse.
+```{r}
+nn_df %>% filter(ind_cluster == 'DATP:NOS' | ind_cluster ==  'DATP:Fibrotic') %>%
+  filter(neighbor_cluster == 'Fib:Fibrotic') %>%
+  group_by(ind) %>%
+  summarise(ind_cluster=first(ind_cluster), # all ind_cluster should be the same for each ind
+            mean_dist = mean(dist),
+            n=n(),
+            min_dist = min(dist)) -> DATP.fib_df
+# quick summary statistics
+DATP.fib_df %>%
+  group_by(ind_cluster) %>%
+  summarise(mean_dist = mean(mean_dist), mean_n=mean(n), median_n=median(n), mean_mindist=mean(min_dist))
+```
+```{r}
+#graphs
+ggplot(DATP.fib_df, aes(x=ind_cluster, y=n)) + geom_boxplot()
+ggplot(DATP.fib_df, aes(x=ind_cluster, y=min_dist)) + geom_boxplot()
+ggplot(DATP.fib_df, aes(x=ind_cluster, y=mean_dist)) + geom_boxplot()
+```
+
+### For types of DATPs, characterize the other DATPs in the vicinity
+```{r}
+nn_df %>% filter(ind_cluster == 'DATP:NOS') %>%
+  filter(neighbor_cluster == 'DATP:Fibrotic') %>%
+  group_by(ind) %>%
+  summarise(ind_cluster=first(ind_cluster), # all ind_cluster should be the same for each ind
+            mean_dist = mean(dist),
+            n=n(),
+            min_dist = min(dist)) -> DATP.DATP_df
+# quick summary statistics
+DATP.DATP_df %>%
+  group_by(ind_cluster) %>%
+  summarise(mean_dist = mean(mean_dist), mean_n=mean(n), median_n=median(n), mean_mindist=mean(min_dist))
+```
+```{r}
+#graphs
+ggplot(DATP.DATP_df, aes(x=ind_cluster, y=n)) + geom_boxplot()
+ggplot(DATP.DATP_df, aes(x=ind_cluster, y=min_dist)) + geom_boxplot()
+ggplot(DATP.DATP_df, aes(x=ind_cluster, y=mean_dist)) + geom_boxplot()
+```
+
+Identify cells that are general DATPs that are preferentially in a context of other general DATPs. Let us say for instance that within a radius of 50 microns, there are going to be around 25 cells on average, and only one or two  should be fibrotic DATPs.
+```{r}
+nn_df %>% filter(ind_cluster == 'DATP:NOS') %>%
+  filter(neighbor_cluster == 'DATP:Fibrotic') %>%
+  filter(dist<50) %>%
+  group_by(ind) %>% 
+  summarise(ind_cluster=first(ind_cluster), # all ind_cluster should be the same for each ind
+            n=n(),
+            min_dist = min(dist)) %>%
+  filter(n<3) -> regen.DATP_df
+head(regen.DATP_df)
+```
+By contrast identify fibrotic DATPs that are in the context of a lot of fibrotic DATPs, say, greater than 15 in their 50 um radius.
+```{r}
+nn_df %>% filter(ind_cluster == 'DATP:Fibrotic') %>%
+  filter(neighbor_cluster == 'DATP:Fibrotic') %>%
+  filter(dist<50) %>%
+  group_by(ind) %>% 
+  summarise(ind_cluster=first(ind_cluster), # all ind_cluster should be the same for each ind
+            n=n(),
+            min_dist = min(dist)) %>%
+  filter(n>15) -> fibrotic.DATP_df
+head(fibrotic.DATP_df)
+```
+Now repeat fibrotic fibroblast analysis based on this stringent identification of DATPs that are situated in clusters.
+```{r}
+nn_df %>% filter(ind %in% regen.DATP_df$ind | ind %in% fibrotic.DATP_df$ind) %>%
+  filter(neighbor_cluster == 'Fib:Fibrotic') %>%
+  filter(dist<50) %>%
+  group_by(ind) %>%
+  summarise(ind_cluster=first(ind_cluster), # all ind_cluster should be the same for each ind
+            mean_dist = mean(dist),
+            n=n(),
+            min_dist = min(dist)) -> strictDATP.fib_df
+# quick summary statistics
+strictDATP.fib_df %>%
+  group_by(ind_cluster) %>%
+  summarise(mean_dist = mean(mean_dist), mean_n=mean(n), median_n=median(n), mean_mindist=mean(min_dist))
+```
+```{r}
+#graphs
+ggplot(strictDATP.fib_df, aes(x=ind_cluster, y=n)) + geom_boxplot()
+ggplot(strictDATP.fib_df, aes(x=ind_cluster, y=min_dist)) + geom_boxplot()
+ggplot(strictDATP.fib_df, aes(x=ind_cluster, y=mean_dist)) + geom_boxplot()
+```
+
+Try gene expression based on fibroblasts within 50 um of these identities.
+```{r, eval=FALSE}
+nn_df %>% filter(ind %in% regen.DATP_df$ind) %>%
+  filter(str_detect(neighbor_cluster, 'Fib:')) %>%
+  filter(dist<50) -> regen.Fib_df
+nn_df %>% filter(ind %in% fibrotic.DATP_df$ind) %>%
+  filter(str_detect(neighbor_cluster, 'Fib:')) %>%
+  filter(dist<50) -> fibDATP.Fib_df
+
+# Fibs near regenerative zones may not also be part of a fibrotic zone and vice versa
+RegenDATP.fib.cells <- setdiff(unique(regen.Fib_df$neighbor),unique(fibDATP.Fib_df$neighbor))
+FibDATP.fib.cells <- setdiff(unique(fibDATP.Fib_df$neighbor),unique(regen.Fib_df$neighbor))
+
+# make seurat subsets based on these identities
+fibDATP.Fib.xen <- subset(ipf1.xen, cells=FibDATP.fib.cells)
+fibDATP.Fib.xen$neighbor <- 'FibDATP'
+regen.Fib.xen <- subset(ipf1.xen, cells=RegenDATP.fib.cells)
+regen.Fib.xen$neighbor <- 'RegenDATP'
+neighbor.Fib.xen <- merge(regen.Fib.xen,y=fibDATP.Fib.xen)
+```
+```{r}
+VlnPlot(neighbor.Fib.xen, c('COL1A1','CTHRC1','FN1'), group.by = 'neighbor')
+```
+
+### For types of epithelium, characterize fibrotic fibroblasts within radius
+Maybe the issue is that we don't have enough markers here to distinguish fibrotic DATPs from regular DATPs, and they are intermixed anyway.
+```{r}
+nn_df %>% filter(ind_cluster == 'DATP:NOS' | ind_cluster ==  'DATP:Fibrotic' | ind_cluster ==  'Airway-like' ) %>%
+  filter(neighbor_cluster == 'Fib:Fibrotic') %>%
+  filter(dist<100) %>%
+  group_by(ind) %>%
+  summarise(ind_cluster=first(ind_cluster), # all ind_cluster should be the same for each ind
+            mean_dist = mean(dist),
+            n=n(),
+            min_dist = min(dist)) -> DATP.fib_df
+# quick summary statistics
+DATP.fib_df %>%
+  group_by(ind_cluster) %>%
+  summarise(mean_dist = mean(mean_dist), mean_n=mean(n), median_n=median(n), mean_mindist=mean(min_dist))
+
+# Nonparametric statistical testing
+wilcox.test(filter(DATP.fib_df, ind_cluster=='DATP:Fibrotic')$min_dist,
+            filter(DATP.fib_df, ind_cluster=='Airway-like')$min_dist,
+            alternative='two.sided')
+wilcox.test(filter(DATP.fib_df, ind_cluster=='DATP:Fibrotic')$n,
+            filter(DATP.fib_df, ind_cluster=='Airway-like')$n,
+            alternative='two.sided')
+
+
+```
+```{r}
+ggplot(DATP.fib_df, aes(x=ind_cluster, y=n)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  theme_classic() + 
+  ylim(0,50)
+ggplot(DATP.fib_df, aes(x=ind_cluster, y=min_dist)) +
+  geom_boxplot(outlier.shape = NA) +
+  theme_classic()
+ggplot(DATP.fib_df, aes(x=ind_cluster, y=mean_dist)) + geom_boxplot(outlier.shape = NA) + theme_classic()
+```
+
+## Niche radius questions, manual
+Builds off the cell radius tables from above. 
+
+First, ask analogous questions except based on niche.
+```{r}
+nn_df %>% filter(ind_niche %in% c(2,8,10)) %>%
+  filter(neighbor_niche == 9) %>%
+  filter(dist<100) %>%
+  group_by(ind) %>%
+  summarise(ind_niche=first(ind_niche), # all ind_cluster should be the same for each ind
+            mean_dist = mean(dist),
+            n=n(),
+            min_dist = min(dist)) -> DATP.fib.niches_df
+# quick summary statistics
+DATP.fib.niches_df %>%
+  group_by(ind_niche) %>%
+  summarise(mean_dist = mean(mean_dist), mean_n=mean(n), median_n=median(n), mean_mindist=mean(min_dist))
+```
+
+## Grant figure on non-fibrotic transitional
+```{r}
+Idents(ipf1.xen) <- 'named_clusters'
+key_markers <- c('KRT8','LGALS3','GDF15',"ITGB6", "XBP1",'ATF4')
+
+DotPlot(ipf1.xen, features=key_markers, scale=F) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
