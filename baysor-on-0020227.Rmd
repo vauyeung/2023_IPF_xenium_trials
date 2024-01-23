@@ -1,0 +1,35 @@
+---
+title: "Baysor run on slide 0020227"
+output:
+  github_document:
+    toc: true
+  html_notebook:
+    toc: true
+---
+
+# Environment
+## Set up 10X python scripts
+Follows the instructions on Xenium website posted in Feb 2023. Transcripts.csv.gz unzipped into output directory, and created "filter_transcripts.py" as instructed, and gave python scripts execution permission. 
+
+## Baysor 
+Baysor 0.6.2 was downloaded as a binary according to github charchenkolab/Baysor instructions. This threw an error, "`min_molecules_per_cell` must be positive exit with 1" which was confusing because the transcript file only has transcripts in it, suggesting a bug in Baysor. 10X says that "we tested multiple tagged versions... in particular neither Baysor:master or baysor:latest worked, only 0.5.0 works reliably"
+
+
+# Filter Xenium output for compatibility
+10X script dumps a generically-named file into the working directory which will cause confusion.
+```{bash}
+cd ./output-XETG00143__0020227__Region_1__20231214__022306/
+python ../filter_transcripts.py -transcript transcripts.csv
+```
+
+# Baysor preview
+Generates an HTML preview file. Note that the command in 0.6.2 is lowercase baysor. The transcript csv file should be the filtered edition.
+```{bash}
+# Note each chunk is new terminal instance.
+export PATH="$HOME/bin/Baysor/bin:$PATH"
+
+baysor preview -x x_location -y y_location -z z_location -g feature_name ./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.csv
+```
+This call is generating errors that seems related to the installation (10X says the same.)
+
+
