@@ -1,0 +1,141 @@
+---
+title: "Probe selection for IPF lung using SPAPROS"
+output:
+  github_document:
+    toc: true
+  html_notebook:
+    toc: true
+--- 
+
+# Environment
+
+## load R environment
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(Seurat)
+```
+
+## Load IPF Cell Atlas data
+Spapros is expecting scanpy format data with raw counts. Load based on established R workflow then convert.
+### Read in GSE136831
+```{r}
+original.dir <- ('~/vcalab-files/datasets/GSE136831_IPF_Cell_Atlas/')
+metadata <- read_tsv(paste0(original.dir,'GSE136831_AllCells.Samples.CellType.MetadataTable.txt.gz'))
+metadata <- as.data.frame(metadata)
+rownames(metadata) <- metadata$CellBarcode_Identity
+
+features <- read_tsv(paste0(original.dir,'GSE136831_AllCells.GeneIDs.txt.gz'))
+cells <- read_tsv(paste0(original.dir,'GSE136831_AllCells.cellBarcodes.txt.gz'), col_names = F)
+
+counts <- Matrix::readMM(paste0(original.dir,'GSE136831_RawCounts_Sparse.mtx.gz'))
+rownames(counts) <- features$HGNC_EnsemblAlt_GeneID
+colnames(counts) <- cells$X1
+```
+```{r}
+ipfatlas.cells <- CreateSeuratObject(counts=counts, meta.data=metadata)
+```
+```{r}
+rm(counts,cells,features,metadata)
+gc()
+```
+### Standard filters
+```{r}
+ipfatlas.cells[['percent.mt']] <- PercentageFeatureSet(ipfatlas.cells, pattern='^MT-')
+VlnPlot(ipfatlas.cells, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = 0)
+```
+```{r}
+ipfatlas.cells <- subset(ipfatlas.cells, subset = nFeature_RNA > 200 & nFeature_RNA < 5000 & percent.mt < 10)
+```
+### Convert to scanpy compatible format (anndata)
+This is remarkably not a solved problem but sceasy has functions for it. have to back-convert the Seurat5 object to a v3-like assay.
+```{r}
+ipfatlas.cells[['RNA']] <- as(ipfatlas.cells[['RNA']],'Assay')
+sceasy::convertFormat(ipfatlas.cells, from='seurat',to='anndata', outFile = 'ipfatlas.adata')
+```
+
+
+
+## load python environment
+Weird behavior when reticulate instantiated by other packages, therefore restart R.
+```{r}
+.rs.restartR()
+```
+Using the SPAPROS workflow documented by theis lab which is python/scanpy based.
+```{python}
+import scanpy as sc
+import spapros as sp
+sc.settings.verbosity=0
+sc.logging.print_header()
+print(f"spapros=={sp.__version__}")
+```
+Access adata object on the python side. to avoid name conversions throughout python code, just make it "adata." Unpredictable behavior when porting from R to python environment, so store as h5ad and read back in.
+```{python}
+adata = sc.read_h5ad('ipfatlas.adata')
+adata
+```
+# SPAPROS probe selection
+## Preprocess data with scanpy
+Filtering has already been done on the Seurat side.
+```{python}
+sc.pp.normalize_total(adata)
+sc.pp.log1p(adata)
+sc.pp.highly_variable_genes(adata,flavor="cell_ranger",n_top_genes=1000)
+sc.pp.pca(adata, svd_solver='lobpcg') # had issues with arpack
+sc.pp.neighbors(adata, n_neighbors=10, n_pcs=30)
+sc.tl.umap(adata)
+sc.pl.umap(adata, color=['CellType_Category'])
+```
+## Select probes for normal, COPD, and IPF, no constraints.
+Asked for 200 genes, because one imagines that various stakeholders will add another 100 for IPF subsets, and probably asthma stakeholders will add another 100 bringing total to 400. Note that this dataset includes normal lung and COPD lung. 
+```{python}
+selector = sp.se.ProbesetSelector(adata, n=200, celltype_key="Manuscript_Identity", verbosity=0, save_dir=None)
+selector.select_probeset()
+```
+### Quick summary of selected probes
+What is the distribution of chosen probes among methods?
+```{python}
+selector.plot_gene_overlap()
+```
+I don't understand what the 4th column is, 33 genes that have no attribution for the method of selection? 
+```{python}
+# list probes
+selector.probeset.index[selector.probeset.selection]
+```
+Table of characteristics for selected probes
+```{python}
+probe_candidates = selector.probeset[selector.probeset.selection]
+probe_candidates
+```
+### Dotplots of probeset split by selection method
+#### Cluster markers (DE 1vs all)
+```{python}
+probes = probe_candidates[(probe_candidates['celltypes_DE_1vsall']!='')]
+probes = probes.sort_values('celltypes_DE')
+sc.pl.dotplot(adata, probes.index[0:40], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[40::], groupby='Manuscript_Identity', dendrogram=False)
+```
+#### Nuanced cluster markers (celltypes_DE_specific)
+```{python}
+probes = probe_candidates[(probe_candidates['celltypes_DE_specific']!='')]
+probes = probes.sort_values('celltypes_DE')
+sc.pl.dotplot(adata, probes.index[0:25], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[25::], groupby='Manuscript_Identity', dendrogram=False)
+```
+#### PCA based (celltypes_DE_specific)
+```{python}
+probes = probe_candidates[(probe_candidates['pca_selected'])]
+probes = probes.sort_values('celltypes_DE')
+sc.pl.dotplot(adata, probes.index[0:33], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[33:66], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[66::], groupby='Manuscript_Identity', dendrogram=False)
+```
+
+### Probeset performance 
+#### Reference: trial lung panel
+```{r}
+xenium.panel1.genes <- read.csv('Xenium_panel_order_08_10_23.csv', header = TRUE)$Gene
+```
+```{python}
+
+```
+
