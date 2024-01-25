@@ -1,0 +1,216 @@
+---
+title: "Probset performance measurements on slide 0020227"
+output: html_notebook: toc: true
+  github_document:
+    toc: true
+---
+
+This is a slide that was run in December 2023. The slide includes one section from the same block (the "good" block) done with the limited library on 0010972 that gave some decent data. One triangular piece is a scleroderma lung. The goal of this analysis is to look at components of probeset behavior and whether that can be predicted from single cell sequencing from reference datasets. 
+
+# Environment
+```{r}
+library(Seurat)
+library(tidyverse)
+library(future)
+plan(multisession, workers=10)
+options(future.globals.maxSize = 104857600000000)
+library(future.apply)
+
+```
+
+## Read in Xenium 
+```{r}
+ipf3.xen <- LoadXenium('output-XETG00143__0020227__Region_1__20231214__022306')
+```
+## Read in IPF Cell Atlas GSE136831
+```{r}
+original.dir <- ('~/vcalab-files/datasets/GSE136831_IPF_Cell_Atlas/')
+metadata <- read_tsv(paste0(original.dir,'GSE136831_AllCells.Samples.CellType.MetadataTable.txt.gz'))
+metadata <- as.data.frame(metadata)
+rownames(metadata) <- metadata$CellBarcode_Identity
+
+features <- read_tsv(paste0(original.dir,'GSE136831_AllCells.GeneIDs.txt.gz'))
+cells <- read_tsv(paste0(original.dir,'GSE136831_AllCells.cellBarcodes.txt.gz'), col_names = F)
+
+counts <- Matrix::readMM(paste0(original.dir,'GSE136831_RawCounts_Sparse.mtx.gz'))
+rownames(counts) <- features$HGNC_EnsemblAlt_GeneID
+colnames(counts) <- cells$X1
+```
+```{r}
+ipfatlas.cells <- CreateSeuratObject(counts=counts, meta.data=metadata)
+```
+```{r}
+rm(counts,cells,features,metadata)
+gc()
+```
+
+# Comparison of raw counts between scRNA and Xenium
+Kind of stupidly one assumes that that among cells that express a target transcript (count>0), then there ought to be some correlation between single cell sequencing and spatial detection. With the caveat that segmentation is a mess. I am hesitant to use total transcript detection because some targets are intended to identify rare cells and (correctly) have low total detection across the slide.
+```{r}
+# limit analysis to probes that can be assessed
+probes <- intersect(rownames(ipf3.xen), rownames(ipfatlas.cells))
+```
+## Zero-suppressed average expression
+```{r}
+nonzeroaverages <- data.frame(gene=probes,
+                              xeniumAvg=unlist(future_lapply(probes, function(symbol){
+                                counts <- ipf3.xen[['Xenium']]$counts[symbol,]
+                                nonzeroavg <- mean(counts[counts!=0])
+                                return(nonzeroavg)
+                                })),
+                              ipfatlasAvg=unlist(future_lapply(probes, function(symbol){
+                                counts <- ipfatlas.cells[['RNA']]$counts[symbol,]
+                                nonzeroavg <- mean(counts[counts!=0])
+                                return(nonzeroavg)
+                              }))
+)
+```
+
+
+```{r}
+ggplot(data=nonzeroaverages, aes(x=ipfatlasAvg, y=xeniumAvg)) + 
+  geom_point() +
+  scale_x_continuous(trans='log2') +
+  scale_y_continuous(trans='log2') +
+  geom_smooth(method='lm', formula= y~x)
+```
+Probes with much lower Xenium average than we would expect based on expression. 
+```{r}
+lm(xeniumAvg~ipfatlasAvg, data=nonzeroaverages)
+```
+Somewhat arbitrarily, let's say something is somewhat lower expression than we would expect, that would not be great.
+```{r}
+folddiff <- 4
+nonzeroaverages$shitlist1 <- unlist(lapply(nonzeroaverages$gene, function(symbol){
+  expected <- (0.09528 /folddiff) * filter(nonzeroaverages,gene==symbol)$ipfatlasAvg + 1
+  return(filter(nonzeroaverages,gene==symbol)$xeniumAvg < expected)
+}))
+```
+```{r}
+ggplot(data=nonzeroaverages, aes(x=ipfatlasAvg, y=xeniumAvg)) + 
+  geom_point(aes(color=factor(shitlist1))) +
+  scale_x_continuous(trans='log2') +
+  scale_y_continuous(trans='log2') +
+  geom_smooth(method='lm', formula= y~x)
+```
+```{r}
+filter(nonzeroaverages, shitlist1)
+```
+
+## Zero-suppressed median expression
+```{r}
+nonzeromedians <- data.frame(gene=probes,
+                              xeniumMed=unlist(future_lapply(probes, function(symbol){
+                                counts <- ipf3.xen[['Xenium']]$counts[symbol,]
+                                nonzeroavg <- median(counts[counts!=0])
+                                return(nonzeroavg)
+                                })),
+                              ipfatlasMed=unlist(future_lapply(probes, function(symbol){
+                                counts <- ipfatlas.cells[['RNA']]$counts[symbol,]
+                                nonzeroavg <- median(counts[counts!=0])
+                                return(nonzeroavg)
+                              }))
+)
+```
+
+```{r}
+ggplot(data=nonzeromedians, aes(x=ipfatlasMed, y=xeniumMed)) + 
+  geom_point() +
+  scale_x_continuous(trans='log2') +
+  scale_y_continuous(trans='log2') +
+  geom_smooth(method='lm', formula= y~x)
+```
+## zero-suppressed top decile expression
+```{r}
+nonzerodecile <- data.frame(gene=probes,
+                              xeniumDec=unlist(future_lapply(probes, function(symbol){
+                                counts <- ipf3.xen[['Xenium']]$counts[symbol,]
+                                nonzeroDec <- quantile(counts[counts!=0], probs=0.9)
+                                return(nonzeroDec)
+                                })),
+                              ipfatlasDec=unlist(future_lapply(probes, function(symbol){
+                                counts <- ipfatlas.cells[['RNA']]$counts[symbol,]
+                                nonzeroDec <- quantile(counts[counts!=0], probs=0.9)
+                                return(nonzeroDec)
+                              }))
+)
+```
+```{r}
+ggplot(data=nonzerodecile, aes(x=ipfatlasDec, y=xeniumDec)) + 
+  geom_point() +
+  scale_x_continuous(trans='log2') +
+  scale_y_continuous(trans='log2') +
+  geom_smooth(method='lm', formula= y~x)
+```
+
+# Comparison of normalized counts between scRNA and Xenium
+This might better account for cells wtih low overall detection, and also has the advantage of being somewhat closer to what actual analysis might be like.
+
+```{r}
+ipf3.xen <- NormalizeData(ipf3.xen)
+ipfatlas.cells <- NormalizeData(ipfatlas.cells)
+```
+## Zero-suppressed average normalized expression
+```{r}
+nonzeroaverages$xeniumNormAvg <- unlist(future_lapply(probes, function(symbol){
+  counts <- GetAssayData(object = ipf3.xen, slot = 'data')[symbol,]
+  nonzeroavg <- mean(counts[counts>0])
+  return(nonzeroavg)
+}))
+
+nonzeroaverages$ipfatlasNormAvg <- unlist(future_lapply(probes, function(symbol){
+  counts <- GetAssayData(object = ipfatlas.cells, slot = 'data')[symbol,]
+  nonzeroavg <- mean(counts[counts>0])
+  return(nonzeroavg)
+}))
+
+```
+```{r}
+ggplot(data=nonzeroaverages, aes(x=ipfatlasNormAvg, y=xeniumNormAvg)) + 
+  geom_point() +
+  geom_smooth(method='lm', formula= y~x)
+```
+Probes with much lower Xenium average than we would expect based on expression. 
+```{r}
+lm(xeniumNormAvg ~ ipfatlasNormAvg, data = nonzeroaverages)
+```
+Somewhat arbitrarily, let's say something is some-fold lower normalized expression than we would expect, that would not be great.
+```{r}
+logdiff <- .6
+nonzeroaverages$shitlist2 <- unlist(lapply(nonzeroaverages$gene, function(symbol){
+  expected <- 0.3421 * filter(nonzeroaverages,gene==symbol)$ipfatlasNormAvg + 5.6541 - logdiff
+  return(filter(nonzeroaverages,gene==symbol)$xeniumNormAvg < expected)
+}))
+```
+```{r}
+ggplot(data=nonzeroaverages, aes(x=ipfatlasNormAvg, y=xeniumNormAvg)) + 
+  geom_point(aes(color=factor(shitlist2))) +
+  geom_smooth(method='lm', formula= y~x)
+```
+```{r}
+filter(nonzeroaverages, shitlist2)
+```
+## Mix and match
+SPARPOS is going to want to filter on norm avg expression. So does that clearly predict whether raw counts are found in Xenium?
+```{r}
+ggplot(data=nonzeroaverages, aes(x=ipfatlasNormAvg, y=xeniumAvg)) + 
+  geom_point() +
+  scale_y_continuous(trans='log2') +
+  geom_smooth(method='lm', formula= y~x)
+```
+I think the answer is, sort of. But really the conclusion seems to be that there are high-performing probes that aren't as sensitive to low expression, assuming they are specific. 
+```{r}
+xenrawthreshold <- 1.5
+nonzeroaverages$winner1 <- unlist(lapply(nonzeroaverages$gene, function(symbol){
+  return(filter(nonzeroaverages,gene==symbol)$xeniumAvg > xenrawthreshold)
+}))
+```
+```{r}
+ggplot(data=nonzeroaverages, aes(x=ipfatlasNormAvg, y=xeniumAvg)) + 
+  geom_point(aes(color=factor(winner1))) +
+  scale_y_continuous(trans='log2') +
+  geom_smooth(method='lm', formula= y~x)
+```
+```{r}
+filter(nonzeroaverages, winner1)
+```

@@ -11,7 +11,7 @@
 
 
 
-<title>Baysor run on slide 0020227</title>
+<title>Probset performance measurements on slide 0020227</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -1746,7 +1746,8 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Baysor run on slide 0020227</h1>
+<h1 class="title toc-ignore">Probset performance measurements on slide
+0020227</h1>
 
 </div>
 
@@ -1754,72 +1755,110 @@ display: none;
 <ul>
 <li><a href="#environment" id="toc-environment">Environment</a>
 <ul>
-<li><a href="#set-up-10x-python-scripts" id="toc-set-up-10x-python-scripts">Set up 10X python scripts</a></li>
-<li><a href="#baysor" id="toc-baysor">Baysor</a></li>
+<li><a href="#read-in-xenium" id="toc-read-in-xenium">Read in
+Xenium</a></li>
+<li><a href="#read-in-ipf-cell-atlas-gse136831" id="toc-read-in-ipf-cell-atlas-gse136831">Read in IPF Cell Atlas
+GSE136831</a></li>
 </ul></li>
-<li><a href="#filter-xenium-output-for-compatibility" id="toc-filter-xenium-output-for-compatibility">Filter Xenium output for
-compatibility</a></li>
-<li><a href="#baysor-preview" id="toc-baysor-preview">Baysor
-preview</a></li>
 </ul>
 </div>
 
 <!-- rnb-text-begin -->
+<p>This is a slide that was run in December 2023. The slide includes one
+section from the same block (the “good” block) done with the limited
+library on 0010972 that gave some decent data. One triangular piece is a
+scleroderma lung. The goal of this analysis is to look at components of
+probeset behavior and whether that can be predicted from single cell
+sequencing from reference datasets.</p>
 <div id="environment" class="section level1">
 <h1>Environment</h1>
-<div id="set-up-10x-python-scripts" class="section level2">
-<h2>Set up 10X python scripts</h2>
-<p>Follows the instructions on Xenium website posted in Feb 2023.
-Transcripts.csv.gz unzipped into output directory, and created
-“filter_transcripts.py” as instructed, and gave python scripts execution
-permission. Important: use -c to keep original gzip file because other
-packages expect transcripts.csv to be zipped.</p>
-</div>
-<div id="baysor" class="section level2">
-<h2>Baysor</h2>
-<p>Baysor 0.6.2 was downloaded as a binary according to github
-charchenkolab/Baysor instructions. This threw an error,
-“<code>min_molecules_per_cell</code> must be positive exit with 1” which
-was confusing because the transcript file only has transcripts in it,
-suggesting a bug in Baysor. 10X says that “we tested multiple tagged
-versions… in particular neither Baysor:master or baysor:latest worked,
-only 0.5.0 works reliably”</p>
-</div>
-</div>
-<div id="filter-xenium-output-for-compatibility" class="section level1">
-<h1>Filter Xenium output for compatibility</h1>
-<p>10X script dumps a generically-named file into the working directory
-which will cause confusion.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgYmFzaFxuY2QgLi9vdXRwdXQtWEVURzAwMTQzX18wMDIwMjI3X19SZWdpb25fMV9fMjAyMzEyMTRfXzAyMjMwNi9cbnB5dGhvbiAuLi9maWx0ZXJfdHJhbnNjcmlwdHMucHkgLXRyYW5zY3JpcHQgdHJhbnNjcmlwdHMuY3N2XG5gYGAifQ== -->
-<pre class="bash"><code>cd ./output-XETG00143__0020227__Region_1__20231214__022306/
-python ../filter_transcripts.py -transcript transcripts.csv</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeShTZXVyYXQpXG5gYGAifQ== -->
+<pre class="r"><code>library(Seurat)</code></pre>
 <!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiTG9hZGluZyByZXF1aXJlZCBwYWNrYWdlOiBTZXVyYXRPYmplY3RcbkxvYWRpbmcgcmVxdWlyZWQgcGFja2FnZTogc3BcbuKAmFNldXJhdE9iamVjdOKAmSB3YXMgYnVpbHQgdW5kZXIgUiA0LjMuMCBidXQgdGhlIGN1cnJlbnQgdmVyc2lvbiBpcyA0LjMuMjsgaXQgaXMgcmVjb21lbmRlZCB0aGF0IHlvdSByZWluc3RhbGxcbuKAmFNldXJhdE9iamVjdOKAmSBhcyB0aGUgQUJJIGZvciBSIG1heSBoYXZlIGNoYW5nZWRcblxuQXR0YWNoaW5nIHBhY2thZ2U6IOKAmFNldXJhdE9iamVjdOKAmVxuXG5UaGUgZm9sbG93aW5nIG9iamVjdCBpcyBtYXNrZWQgZnJvbSDigJhwYWNrYWdlOmJhc2XigJk6XG5cbiAgICBpbnRlcnNlY3RcblxuUmVnaXN0ZXJlZCBTMyBtZXRob2Qgb3ZlcndyaXR0ZW4gYnkgJ2RhdGEudGFibGUnOlxuICBtZXRob2QgICAgICAgICAgIGZyb21cbiAgcHJpbnQuZGF0YS50YWJsZSAgICAgXG5SZWdpc3RlcmVkIFMzIG1ldGhvZCBvdmVyd3JpdHRlbiBieSAnaHRtbHdpZGdldHMnOlxuICBtZXRob2QgICAgICAgICAgIGZyb20gICAgICAgICBcbiAgcHJpbnQuaHRtbHdpZGdldCB0b29sczpyc3R1ZGlvXG4ifQ== -->
+<pre><code>Loading required package: SeuratObject
+Loading required package: sp
+‘SeuratObject’ was built under R 4.3.0 but the current version is 4.3.2; it is recomended that you reinstall
+‘SeuratObject’ as the ABI for R may have changed
+
+Attaching package: ‘SeuratObject’
+
+The following object is masked from ‘package:base’:
+
+    intersect
+
+Registered S3 method overwritten by &#39;data.table&#39;:
+  method           from
+  print.data.table     
+Registered S3 method overwritten by &#39;htmlwidgets&#39;:
+  method           from         
+  print.htmlwidget tools:rstudio</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeSh0aWR5dmVyc2UpXG5gYGAifQ== -->
+<pre class="r"><code>library(tidyverse)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoi4pSA4pSAIEF0dGFjaGluZyBjb3JlIHRpZHl2ZXJzZSBwYWNrYWdlcyDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAgdGlkeXZlcnNlIDIuMC4wIOKUgOKUgFxu4pyUIGRwbHlyICAgICAxLjEuNCAgICAg4pyUIHJlYWRyICAgICAyLjEuNVxu4pyUIGZvcmNhdHMgICAxLjAuMCAgICAg4pyUIHN0cmluZ3IgICAxLjUuMVxu4pyUIGdncGxvdDIgICAzLjQuNCAgICAg4pyUIHRpYmJsZSAgICAzLjIuMVxu4pyUIGx1YnJpZGF0ZSAxLjkuMyAgICAg4pyUIHRpZHlyICAgICAxLjMuMFxu4pyUIHB1cnJyICAgICAxLjAuMiAgICAg4pSA4pSAIENvbmZsaWN0cyDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAgdGlkeXZlcnNlX2NvbmZsaWN0cygpIOKUgOKUgFxu4pyWIGRwbHlyOjpmaWx0ZXIoKSBtYXNrcyBzdGF0czo6ZmlsdGVyKClcbuKcliBkcGx5cjo6bGFnKCkgICAgbWFza3Mgc3RhdHM6OmxhZygpXG7ihLkgVXNlIHRoZSBcdTAwMWJdODs7aHR0cDovL2NvbmZsaWN0ZWQuci1saWIub3JnL1x1MDAwN2NvbmZsaWN0ZWQgcGFja2FnZVx1MDAxYl04OztcdTAwMDcgdG8gZm9yY2UgYWxsIGNvbmZsaWN0cyB0byBiZWNvbWUgZXJyb3JzXG4ifQ== -->
+<pre><code>── Attaching core tidyverse packages ─────────────────────────────────────────────────────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.1.4     ✔ readr     2.1.5
+✔ forcats   1.0.0     ✔ stringr   1.5.1
+✔ ggplot2   3.4.4     ✔ tibble    3.2.1
+✔ lubridate 1.9.3     ✔ tidyr     1.3.0
+✔ purrr     1.0.2     ── Conflicts ───────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the ]8;;http://conflicted.r-lib.org/conflicted package]8;; to force all conflicts to become errors</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<div id="read-in-xenium" class="section level2">
+<h2>Read in Xenium</h2>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuaXBmMy54ZW4gPC0gTG9hZFhlbml1bSgnb3V0cHV0LVhFVEcwMDE0M19fMDAyMDIyN19fUmVnaW9uXzFfXzIwMjMxMjE0X18wMjIzMDYvJylcbmBgYCJ9 -->
+<pre class="r"><code>ipf3.xen &lt;- LoadXenium(&#39;output-XETG00143__0020227__Region_1__20231214__022306/&#39;)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiMTBYIGRhdGEgY29udGFpbnMgbW9yZSB0aGFuIG9uZSB0eXBlIGFuZCBpcyBiZWluZyByZXR1cm5lZCBhcyBhIGxpc3QgY29udGFpbmluZyBtYXRyaWNlcyBvZiBlYWNoIHR5cGUuXG5XYXJuaW5nOiBGZWF0dXJlIG5hbWVzIGNhbm5vdCBoYXZlIHVuZGVyc2NvcmVzICgnXycpLCByZXBsYWNpbmcgd2l0aCBkYXNoZXMgKCctJylXYXJuaW5nOiBGZWF0dXJlIG5hbWVzIGNhbm5vdCBoYXZlIHVuZGVyc2NvcmVzICgnXycpLCByZXBsYWNpbmcgd2l0aCBkYXNoZXMgKCctJylXYXJuaW5nOiBGZWF0dXJlIG5hbWVzIGNhbm5vdCBoYXZlIHVuZGVyc2NvcmVzICgnXycpLCByZXBsYWNpbmcgd2l0aCBkYXNoZXMgKCctJylXYXJuaW5nOiBGZWF0dXJlIG5hbWVzIGNhbm5vdCBoYXZlIHVuZGVyc2NvcmVzICgnXycpLCByZXBsYWNpbmcgd2l0aCBkYXNoZXMgKCctJylXYXJuaW5nOiBGZWF0dXJlIG5hbWVzIGNhbm5vdCBoYXZlIHVuZGVyc2NvcmVzICgnXycpLCByZXBsYWNpbmcgd2l0aCBkYXNoZXMgKCctJylXYXJuaW5nOiBGZWF0dXJlIG5hbWVzIGNhbm5vdCBoYXZlIHVuZGVyc2NvcmVzICgnXycpLCByZXBsYWNpbmcgd2l0aCBkYXNoZXMgKCctJylcbiJ9 -->
+<pre><code>10X data contains more than one type and is being returned as a list containing matrices of each type.
+Warning: Feature names cannot have underscores (&#39;_&#39;), replacing with dashes (&#39;-&#39;)Warning: Feature names cannot have underscores (&#39;_&#39;), replacing with dashes (&#39;-&#39;)Warning: Feature names cannot have underscores (&#39;_&#39;), replacing with dashes (&#39;-&#39;)Warning: Feature names cannot have underscores (&#39;_&#39;), replacing with dashes (&#39;-&#39;)Warning: Feature names cannot have underscores (&#39;_&#39;), replacing with dashes (&#39;-&#39;)Warning: Feature names cannot have underscores (&#39;_&#39;), replacing with dashes (&#39;-&#39;)</code></pre>
+<!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 </div>
-<div id="baysor-preview" class="section level1">
-<h1>Baysor preview</h1>
-<p>Generates an HTML preview file. Note that the command in 0.6.2 is
-lowercase baysor. The transcript csv file should be the filtered
-edition.</p>
+<div id="read-in-ipf-cell-atlas-gse136831" class="section level2">
+<h2>Read in IPF Cell Atlas GSE136831</h2>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgYmFzaFxuIyBOb3RlIGVhY2ggY2h1bmsgaXMgbmV3IHRlcm1pbmFsIGluc3RhbmNlLlxuZXhwb3J0IFBBVEg9XCIkSE9NRS9iaW4vQmF5c29yL2JpbjokUEFUSFwiXG5cbmJheXNvciBwcmV2aWV3IC14IHhfbG9jYXRpb24gLXkgeV9sb2NhdGlvbiAteiB6X2xvY2F0aW9uIC1nIGZlYXR1cmVfbmFtZSAuL291dHB1dC1YRVRHMDAxNDNfXzAwMjAyMjdfX1JlZ2lvbl8xX18yMDIzMTIxNF9fMDIyMzA2L1gwLjAtMjQwMDAuMF9ZMC4wLTI0MDAwLjBfZmlsdGVyZWRfdHJhbnNjcmlwdHMuY3N2XG5gYGAifQ== -->
-<pre class="bash"><code># Note each chunk is new terminal instance.
-export PATH=&quot;$HOME/bin/Baysor/bin:$PATH&quot;
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxub3JpZ2luYWwuZGlyIDwtICgnfi92Y2FsYWItZmlsZXMvZGF0YXNldHMvR1NFMTM2ODMxX0lQRl9DZWxsX0F0bGFzLycpXG5tZXRhZGF0YSA8LSByZWFkX3RzdihwYXN0ZTAob3JpZ2luYWwuZGlyLCdHU0UxMzY4MzFfQWxsQ2VsbHMuU2FtcGxlcy5DZWxsVHlwZS5NZXRhZGF0YVRhYmxlLnR4dC5neicpKVxubWV0YWRhdGEgPC0gYXMuZGF0YS5mcmFtZShtZXRhZGF0YSlcbnJvd25hbWVzKG1ldGFkYXRhKSA8LSBtZXRhZGF0YSRDZWxsQmFyY29kZV9JZGVudGl0eVxuXG5mZWF0dXJlcyA8LSByZWFkX3RzdihwYXN0ZTAob3JpZ2luYWwuZGlyLCdHU0UxMzY4MzFfQWxsQ2VsbHMuR2VuZUlEcy50eHQuZ3onKSlcbmNlbGxzIDwtIHJlYWRfdHN2KHBhc3RlMChvcmlnaW5hbC5kaXIsJ0dTRTEzNjgzMV9BbGxDZWxscy5jZWxsQmFyY29kZXMudHh0Lmd6JyksIGNvbF9uYW1lcyA9IEYpXG5cbmNvdW50cyA8LSBNYXRyaXg6OnJlYWRNTShwYXN0ZTAob3JpZ2luYWwuZGlyLCdHU0UxMzY4MzFfUmF3Q291bnRzX1NwYXJzZS5tdHguZ3onKSlcbnJvd25hbWVzKGNvdW50cykgPC0gZmVhdHVyZXMkSEdOQ19FbnNlbWJsQWx0X0dlbmVJRFxuY29sbmFtZXMoY291bnRzKSA8LSBjZWxscyRYMVxuYGBgIn0= -->
+<pre class="r"><code>original.dir &lt;- (&#39;~/vcalab-files/datasets/GSE136831_IPF_Cell_Atlas/&#39;)
+metadata &lt;- read_tsv(paste0(original.dir,&#39;GSE136831_AllCells.Samples.CellType.MetadataTable.txt.gz&#39;))
+metadata &lt;- as.data.frame(metadata)
+rownames(metadata) &lt;- metadata$CellBarcode_Identity
 
-baysor preview -x x_location -y y_location -z z_location -g feature_name ./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.csv</code></pre>
+features &lt;- read_tsv(paste0(original.dir,&#39;GSE136831_AllCells.GeneIDs.txt.gz&#39;))
+cells &lt;- read_tsv(paste0(original.dir,&#39;GSE136831_AllCells.cellBarcodes.txt.gz&#39;), col_names = F)
+
+counts &lt;- Matrix::readMM(paste0(original.dir,&#39;GSE136831_RawCounts_Sparse.mtx.gz&#39;))
+rownames(counts) &lt;- features$HGNC_EnsemblAlt_GeneID
+colnames(counts) &lt;- cells$X1</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<p>This call is generating errors that seems related to the installation
-(10X says the same.)</p>
-<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuaXBmYXRsYXMuY2VsbHMgPC0gQ3JlYXRlU2V1cmF0T2JqZWN0KGNvdW50cz1jb3VudHMsIG1ldGEuZGF0YT1tZXRhZGF0YSlcbmBgYCJ9 -->
+<pre class="r"><code>ipfatlas.cells &lt;- CreateSeuratObject(counts=counts, meta.data=metadata)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucm0oY291bnRzLGNlbGxzLGZlYXR1cmVzLG1ldGFkYXRhKVxuZ2MoKVxuYGBgIn0= -->
+<pre class="r"><code>rm(counts,cells,features,metadata)
+gc()</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+</div>
 </div>
 
-<div id="rmd-source-code">LS0tCnRpdGxlOiAiQmF5c29yIHJ1biBvbiBzbGlkZSAwMDIwMjI3IgpvdXRwdXQ6CiAgZ2l0aHViX2RvY3VtZW50OgogICAgdG9jOiB0cnVlCiAgaHRtbF9ub3RlYm9vazoKICAgIHRvYzogdHJ1ZQotLS0KCiMgRW52aXJvbm1lbnQKIyMgU2V0IHVwIDEwWCBweXRob24gc2NyaXB0cwpGb2xsb3dzIHRoZSBpbnN0cnVjdGlvbnMgb24gWGVuaXVtIHdlYnNpdGUgcG9zdGVkIGluIEZlYiAyMDIzLiBUcmFuc2NyaXB0cy5jc3YuZ3ogdW56aXBwZWQgaW50byBvdXRwdXQgZGlyZWN0b3J5LCBhbmQgY3JlYXRlZCAiZmlsdGVyX3RyYW5zY3JpcHRzLnB5IiBhcyBpbnN0cnVjdGVkLCBhbmQgZ2F2ZSBweXRob24gc2NyaXB0cyBleGVjdXRpb24gcGVybWlzc2lvbi4gSW1wb3J0YW50OiB1c2UgLWMgdG8ga2VlcCBvcmlnaW5hbCBnemlwIGZpbGUgYmVjYXVzZSBvdGhlciBwYWNrYWdlcyBleHBlY3QgdHJhbnNjcmlwdHMuY3N2IHRvIGJlIHppcHBlZC4KCiMjIEJheXNvciAKQmF5c29yIDAuNi4yIHdhcyBkb3dubG9hZGVkIGFzIGEgYmluYXJ5IGFjY29yZGluZyB0byBnaXRodWIgY2hhcmNoZW5rb2xhYi9CYXlzb3IgaW5zdHJ1Y3Rpb25zLiBUaGlzIHRocmV3IGFuIGVycm9yLCAiYG1pbl9tb2xlY3VsZXNfcGVyX2NlbGxgIG11c3QgYmUgcG9zaXRpdmUgZXhpdCB3aXRoIDEiIHdoaWNoIHdhcyBjb25mdXNpbmcgYmVjYXVzZSB0aGUgdHJhbnNjcmlwdCBmaWxlIG9ubHkgaGFzIHRyYW5zY3JpcHRzIGluIGl0LCBzdWdnZXN0aW5nIGEgYnVnIGluIEJheXNvci4gMTBYIHNheXMgdGhhdCAid2UgdGVzdGVkIG11bHRpcGxlIHRhZ2dlZCB2ZXJzaW9ucy4uLiBpbiBwYXJ0aWN1bGFyIG5laXRoZXIgQmF5c29yOm1hc3RlciBvciBiYXlzb3I6bGF0ZXN0IHdvcmtlZCwgb25seSAwLjUuMCB3b3JrcyByZWxpYWJseSIKCgojIEZpbHRlciBYZW5pdW0gb3V0cHV0IGZvciBjb21wYXRpYmlsaXR5CjEwWCBzY3JpcHQgZHVtcHMgYSBnZW5lcmljYWxseS1uYW1lZCBmaWxlIGludG8gdGhlIHdvcmtpbmcgZGlyZWN0b3J5IHdoaWNoIHdpbGwgY2F1c2UgY29uZnVzaW9uLgpgYGB7YmFzaH0KY2QgLi9vdXRwdXQtWEVURzAwMTQzX18wMDIwMjI3X19SZWdpb25fMV9fMjAyMzEyMTRfXzAyMjMwNi8KcHl0aG9uIC4uL2ZpbHRlcl90cmFuc2NyaXB0cy5weSAtdHJhbnNjcmlwdCB0cmFuc2NyaXB0cy5jc3YKYGBgCgojIEJheXNvciBwcmV2aWV3CkdlbmVyYXRlcyBhbiBIVE1MIHByZXZpZXcgZmlsZS4gTm90ZSB0aGF0IHRoZSBjb21tYW5kIGluIDAuNi4yIGlzIGxvd2VyY2FzZSBiYXlzb3IuIFRoZSB0cmFuc2NyaXB0IGNzdiBmaWxlIHNob3VsZCBiZSB0aGUgZmlsdGVyZWQgZWRpdGlvbi4KYGBge2Jhc2h9CiMgTm90ZSBlYWNoIGNodW5rIGlzIG5ldyB0ZXJtaW5hbCBpbnN0YW5jZS4KZXhwb3J0IFBBVEg9IiRIT01FL2Jpbi9CYXlzb3IvYmluOiRQQVRIIgoKYmF5c29yIHByZXZpZXcgLXggeF9sb2NhdGlvbiAteSB5X2xvY2F0aW9uIC16IHpfbG9jYXRpb24gLWcgZmVhdHVyZV9uYW1lIC4vb3V0cHV0LVhFVEcwMDE0M19fMDAyMDIyN19fUmVnaW9uXzFfXzIwMjMxMjE0X18wMjIzMDYvWDAuMC0yNDAwMC4wX1kwLjAtMjQwMDAuMF9maWx0ZXJlZF90cmFuc2NyaXB0cy5jc3YKYGBgClRoaXMgY2FsbCBpcyBnZW5lcmF0aW5nIGVycm9ycyB0aGF0IHNlZW1zIHJlbGF0ZWQgdG8gdGhlIGluc3RhbGxhdGlvbiAoMTBYIHNheXMgdGhlIHNhbWUuKQoKCg==</div>
+<div id="rmd-source-code">LS0tCnRpdGxlOiAiUHJvYnNldCBwZXJmb3JtYW5jZSBtZWFzdXJlbWVudHMgb24gc2xpZGUgMDAyMDIyNyIKb3V0cHV0OgogIGdpdGh1Yl9kb2N1bWVudDoKICAgIHRvYzogdHJ1ZQogIGh0bWxfbm90ZWJvb2s6CiAgICB0b2M6IHRydWUKLS0tCgpUaGlzIGlzIGEgc2xpZGUgdGhhdCB3YXMgcnVuIGluIERlY2VtYmVyIDIwMjMuIFRoZSBzbGlkZSBpbmNsdWRlcyBvbmUgc2VjdGlvbiBmcm9tIHRoZSBzYW1lIGJsb2NrICh0aGUgImdvb2QiIGJsb2NrKSBkb25lIHdpdGggdGhlIGxpbWl0ZWQgbGlicmFyeSBvbiAwMDEwOTcyIHRoYXQgZ2F2ZSBzb21lIGRlY2VudCBkYXRhLiBPbmUgdHJpYW5ndWxhciBwaWVjZSBpcyBhIHNjbGVyb2Rlcm1hIGx1bmcuIFRoZSBnb2FsIG9mIHRoaXMgYW5hbHlzaXMgaXMgdG8gbG9vayBhdCBjb21wb25lbnRzIG9mIHByb2Jlc2V0IGJlaGF2aW9yIGFuZCB3aGV0aGVyIHRoYXQgY2FuIGJlIHByZWRpY3RlZCBmcm9tIHNpbmdsZSBjZWxsIHNlcXVlbmNpbmcgZnJvbSByZWZlcmVuY2UgZGF0YXNldHMuIAoKIyBFbnZpcm9ubWVudApgYGB7cn0KbGlicmFyeShTZXVyYXQpCmxpYnJhcnkodGlkeXZlcnNlKQpgYGAKCiMjIFJlYWQgaW4gWGVuaXVtIApgYGB7cn0KaXBmMy54ZW4gPC0gTG9hZFhlbml1bSgnb3V0cHV0LVhFVEcwMDE0M19fMDAyMDIyN19fUmVnaW9uXzFfXzIwMjMxMjE0X18wMjIzMDYvJykKYGBgCiMjIFJlYWQgaW4gSVBGIENlbGwgQXRsYXMgR1NFMTM2ODMxCmBgYHtyfQpvcmlnaW5hbC5kaXIgPC0gKCd+L3ZjYWxhYi1maWxlcy9kYXRhc2V0cy9HU0UxMzY4MzFfSVBGX0NlbGxfQXRsYXMvJykKbWV0YWRhdGEgPC0gcmVhZF90c3YocGFzdGUwKG9yaWdpbmFsLmRpciwnR1NFMTM2ODMxX0FsbENlbGxzLlNhbXBsZXMuQ2VsbFR5cGUuTWV0YWRhdGFUYWJsZS50eHQuZ3onKSkKbWV0YWRhdGEgPC0gYXMuZGF0YS5mcmFtZShtZXRhZGF0YSkKcm93bmFtZXMobWV0YWRhdGEpIDwtIG1ldGFkYXRhJENlbGxCYXJjb2RlX0lkZW50aXR5CgpmZWF0dXJlcyA8LSByZWFkX3RzdihwYXN0ZTAob3JpZ2luYWwuZGlyLCdHU0UxMzY4MzFfQWxsQ2VsbHMuR2VuZUlEcy50eHQuZ3onKSkKY2VsbHMgPC0gcmVhZF90c3YocGFzdGUwKG9yaWdpbmFsLmRpciwnR1NFMTM2ODMxX0FsbENlbGxzLmNlbGxCYXJjb2Rlcy50eHQuZ3onKSwgY29sX25hbWVzID0gRikKCmNvdW50cyA8LSBNYXRyaXg6OnJlYWRNTShwYXN0ZTAob3JpZ2luYWwuZGlyLCdHU0UxMzY4MzFfUmF3Q291bnRzX1NwYXJzZS5tdHguZ3onKSkKcm93bmFtZXMoY291bnRzKSA8LSBmZWF0dXJlcyRIR05DX0Vuc2VtYmxBbHRfR2VuZUlECmNvbG5hbWVzKGNvdW50cykgPC0gY2VsbHMkWDEKYGBgCmBgYHtyfQppcGZhdGxhcy5jZWxscyA8LSBDcmVhdGVTZXVyYXRPYmplY3QoY291bnRzPWNvdW50cywgbWV0YS5kYXRhPW1ldGFkYXRhKQpgYGAKYGBge3J9CnJtKGNvdW50cyxjZWxscyxmZWF0dXJlcyxtZXRhZGF0YSkKZ2MoKQpgYGA=</div>
 
 
 
@@ -1866,7 +1905,7 @@ $(document).ready(function () {
 <!-- code folding -->
 <script>
 $(document).ready(function () {
-  window.initializeSourceEmbed("baysor-on-0020227.Rmd");
+  window.initializeSourceEmbed("Probeset-Performance-on-0020227-IPF-and-Scleroderma.Rmd");
   window.initializeCodeFolding("show" === "show");
 });
 </script>

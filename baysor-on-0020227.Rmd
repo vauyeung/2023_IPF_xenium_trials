@@ -9,7 +9,7 @@ output:
 
 # Environment
 ## Set up 10X python scripts
-Follows the instructions on Xenium website posted in Feb 2023. Transcripts.csv.gz unzipped into output directory, and created "filter_transcripts.py" as instructed, and gave python scripts execution permission. 
+Follows the instructions on Xenium website posted in Feb 2023. Transcripts.csv.gz unzipped into output directory, and created "filter_transcripts.py" as instructed, and gave python scripts execution permission. Important: use -c to keep original gzip file because other packages expect transcripts.csv to be zipped.
 
 ## Baysor 
 Baysor 0.6.2 was downloaded as a binary according to github charchenkolab/Baysor instructions. This threw an error, "`min_molecules_per_cell` must be positive exit with 1" which was confusing because the transcript file only has transcripts in it, suggesting a bug in Baysor. 10X says that "we tested multiple tagged versions... in particular neither Baysor:master or baysor:latest worked, only 0.5.0 works reliably"

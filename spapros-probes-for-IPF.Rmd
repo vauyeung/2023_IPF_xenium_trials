@@ -62,6 +62,7 @@ Weird behavior when reticulate instantiated by other packages, therefore restart
 ```
 Using the SPAPROS workflow documented by theis lab which is python/scanpy based.
 ```{python}
+import pandas as pd
 import scanpy as sc
 import spapros as sp
 sc.settings.verbosity=0
@@ -77,15 +78,16 @@ adata
 ## Preprocess data with scanpy
 Filtering has already been done on the Seurat side.
 ```{python}
-sc.pp.normalize_total(adata)
+sc.pp.normalize_total(adata, target_sum=10000) # 10k target matches default Seurat scale factor
 sc.pp.log1p(adata)
 sc.pp.highly_variable_genes(adata,flavor="cell_ranger",n_top_genes=1000)
 sc.pp.pca(adata, svd_solver='lobpcg') # had issues with arpack
 sc.pp.neighbors(adata, n_neighbors=10, n_pcs=30)
 sc.tl.umap(adata)
 sc.pl.umap(adata, color=['CellType_Category'])
+sc.pl.umap(adata, color=['Disease_Identity'])
 ```
-## Select probes for normal, COPD, and IPF, no constraints.
+## SPAPROS basic: no constraints.
 Asked for 200 genes, because one imagines that various stakeholders will add another 100 for IPF subsets, and probably asthma stakeholders will add another 100 bringing total to 400. Note that this dataset includes normal lung and COPD lung. 
 ```{python}
 selector = sp.se.ProbesetSelector(adata, n=200, celltype_key="Manuscript_Identity", verbosity=0, save_dir=None)
@@ -129,13 +131,26 @@ sc.pl.dotplot(adata, probes.index[0:33], groupby='Manuscript_Identity', dendrogr
 sc.pl.dotplot(adata, probes.index[33:66], groupby='Manuscript_Identity', dendrogram=False)
 sc.pl.dotplot(adata, probes.index[66::], groupby='Manuscript_Identity', dendrogram=False)
 ```
+## SPAPROS with expression penalties
+Penalties are 0 to 1, where 0 is bad and 1 is best (i.e., no penalty). Behavior of penalties seems to depend on the the source. If identified by the package, it's a multiplier. If the source is from a manually curated list, all genes with *any* penalty is removed.
 
-### Probeset performance 
+
+
+# Probeset performance evaluation within SPAPROS
+Set up evaluation.
+```{python}
+evaluator = sp.ev.ProbesetEvaluator(adata, verbosity=0, results_dir=None)
+```
+
 #### Reference: trial lung panel
-```{r}
-xenium.panel1.genes <- read.csv('Xenium_panel_order_08_10_23.csv', header = TRUE)$Gene
+```{python}
+xenium_panel1_genes = pd.read_csv('Xenium_panel_order_08_10_23.csv')['Gene']
 ```
 ```{python}
-
+evaluator.evaluate_probeset(xenium_panel1_genes, set_id="Xenium Lung Trial")
+```
+#### SPAPROS basic probeset
+```{python}
+evaluator.evaluate_probeset(probes.index, set_id="SPAPROS basic")
 ```
 
