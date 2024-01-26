@@ -1,7 +1,9 @@
 ---
 title: "Probset performance measurements on slide 0020227"
-output: html_notebook: toc: true
+output: 
   github_document:
+    toc: true
+  html_notebook:
     toc: true
 ---
 
@@ -11,11 +13,6 @@ This is a slide that was run in December 2023. The slide includes one section fr
 ```{r}
 library(Seurat)
 library(tidyverse)
-library(future)
-plan(multisession, workers=10)
-options(future.globals.maxSize = 104857600000000)
-library(future.apply)
-
 ```
 
 ## Read in Xenium 
@@ -43,13 +40,27 @@ ipfatlas.cells <- CreateSeuratObject(counts=counts, meta.data=metadata)
 rm(counts,cells,features,metadata)
 gc()
 ```
+## Normalize both datasets
+```{r}
+ipf3.xen <- NormalizeData(ipf3.xen)
+ipfatlas.cells <- NormalizeData(ipfatlas.cells)
+```
 
 # Comparison of raw counts between scRNA and Xenium
 Kind of stupidly one assumes that that among cells that express a target transcript (count>0), then there ought to be some correlation between single cell sequencing and spatial detection. With the caveat that segmentation is a mess. I am hesitant to use total transcript detection because some targets are intended to identify rare cells and (correctly) have low total detection across the slide.
+## Housekeeping
 ```{r}
 # limit analysis to probes that can be assessed
 probes <- intersect(rownames(ipf3.xen), rownames(ipfatlas.cells))
 ```
+```{r}
+# Enable parallel processing - seurat does not play nice with parallel so all seurat processing should ideally be single-core
+library(future)
+plan(multisession, workers=6)
+options(future.globals.maxSize = 104857600000000)
+library(future.apply)
+```
+
 ## Zero-suppressed average expression
 ```{r}
 nonzeroaverages <- data.frame(gene=probes,
@@ -146,10 +157,6 @@ ggplot(data=nonzerodecile, aes(x=ipfatlasDec, y=xeniumDec)) +
 # Comparison of normalized counts between scRNA and Xenium
 This might better account for cells wtih low overall detection, and also has the advantage of being somewhat closer to what actual analysis might be like.
 
-```{r}
-ipf3.xen <- NormalizeData(ipf3.xen)
-ipfatlas.cells <- NormalizeData(ipfatlas.cells)
-```
 ## Zero-suppressed average normalized expression
 ```{r}
 nonzeroaverages$xeniumNormAvg <- unlist(future_lapply(probes, function(symbol){

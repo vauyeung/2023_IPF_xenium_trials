@@ -134,6 +134,57 @@ sc.pl.dotplot(adata, probes.index[66::], groupby='Manuscript_Identity', dendrogr
 ## SPAPROS with expression penalties
 Penalties are 0 to 1, where 0 is bad and 1 is best (i.e., no penalty). Behavior of penalties seems to depend on the the source. If identified by the package, it's a multiplier. If the source is from a manually curated list, all genes with *any* penalty is removed.
 
+We were told by 10x that SCGB1A1 and SFTPC had too high abundance to design probes. COL1A1 is the highest single detected gene in trial runs; I am not aware of any codeword budget issues with COL1A1.
+
+```{python}
+sc.pl.violin(adata, ['SCGB1A1', 'SFTPC', 'COL1A1'])
+```
+```{python}
+sc.pl.violin(adata, ['GDF15', 'CLDN4', 'KRT8'])
+```
+If we wanted to be fairly aggressive, a threshold of like 1 to 6 would get us genes that are like COL1A1 or even more highly expressed. Some high performance genes like KRT8 wouldn't necessarily be selected.
+```{python}
+# Set thresholds
+lower_th = 1.0
+upper_th = 6
+FACTOR = 0.1
+
+# Calculate quantiles
+sp.ut.get_expression_quantile(adata, q=0.99, normalise=False, log1p=False, zeros_to_nan=False)
+sp.ut.get_expression_quantile(adata, q=0.9, normalise=False, log1p=False, zeros_to_nan=True)
+
+# Get penalty functions for given factor
+penalty_fcts[f"lower_{FACTOR}"] = sp.ut.plateau_penalty_kernel(var=0.1 * FACTOR, x_min=lower_th, x_max=None)
+penalty_fcts[f"upper_{FACTOR}"] = sp.ut.plateau_penalty_kernel(var=0.5*FACTOR, x_min=None, x_max=upper_th)
+# Calculate each gene's penalty value
+adata.var[f"expr_penalty_lower_{FACTOR}"] = penalty_fcts[f"lower_{FACTOR}"](adata.var['quantile_0.9 expr > 0'])
+adata.var[f"expr_penalty_upper_{FACTOR}"] = penalty_fcts[f"upper_{FACTOR}"](adata.var['quantile_0.99'])
+# PCA and DE selections with penalties
+penalty_keys = [f"expr_penalty_lower_{FACTOR}",f"expr_penalty_upper_{FACTOR}"]
+
+adata.var["expr_penalty_lower"] = adata.var[f"expr_penalty_lower_{FACTOR}"]
+adata.var["expr_penalty_upper"] = adata.var[f"expr_penalty_upper_{FACTOR}"]
+
+```
+Run the selection
+```{python}
+# create an instance of the ProbesetSelector class
+selector_highexpression = sp.se.ProbesetSelector(
+    adata,
+    n=None,
+    celltype_key="celltype",
+    verbosity=1,
+    save_dir=None,
+    pca_penalties=["expr_penalty_lower", "expr_penalty_upper"],
+    DE_penalties=["expr_penalty_lower", "expr_penalty_upper"],
+    m_penalties_adata_celltypes=["expr_penalty_lower", "expr_penalty_upper"],
+    m_penalties_list_celltypes=["expr_penalty_upper"],
+)
+
+```
+```{python}
+selector_highexpression.select_probeset()
+```
 
 
 # Probeset performance evaluation within SPAPROS
@@ -146,11 +197,11 @@ evaluator = sp.ev.ProbesetEvaluator(adata, verbosity=0, results_dir=None)
 ```{python}
 xenium_panel1_genes = pd.read_csv('Xenium_panel_order_08_10_23.csv')['Gene']
 ```
-```{python}
+```{python, eval=F}
 evaluator.evaluate_probeset(xenium_panel1_genes, set_id="Xenium Lung Trial")
 ```
 #### SPAPROS basic probeset
-```{python}
+```{python, eval=F}
 evaluator.evaluate_probeset(probes.index, set_id="SPAPROS basic")
 ```
 
