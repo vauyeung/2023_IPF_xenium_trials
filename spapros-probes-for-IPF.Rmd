@@ -93,6 +93,11 @@ Asked for 200 genes, because one imagines that various stakeholders will add ano
 selector = sp.se.ProbesetSelector(adata, n=200, celltype_key="Manuscript_Identity", verbosity=0, save_dir=None)
 selector.select_probeset()
 ```
+### Export probes for simulations
+```{python}
+selector.probeset[selector.probeset.selection].to_csv('SPAPROS-basic200.csv')
+```
+
 ### Quick summary of selected probes
 What is the distribution of chosen probes among methods?
 ```{python}
@@ -154,6 +159,7 @@ sp.ut.get_expression_quantile(adata, q=0.99, normalise=False, log1p=False, zeros
 sp.ut.get_expression_quantile(adata, q=0.9, normalise=False, log1p=False, zeros_to_nan=True)
 
 # Get penalty functions for given factor
+penalty_fcts={}
 penalty_fcts[f"lower_{FACTOR}"] = sp.ut.plateau_penalty_kernel(var=0.1 * FACTOR, x_min=lower_th, x_max=None)
 penalty_fcts[f"upper_{FACTOR}"] = sp.ut.plateau_penalty_kernel(var=0.5*FACTOR, x_min=None, x_max=upper_th)
 # Calculate each gene's penalty value
@@ -166,13 +172,13 @@ adata.var["expr_penalty_lower"] = adata.var[f"expr_penalty_lower_{FACTOR}"]
 adata.var["expr_penalty_upper"] = adata.var[f"expr_penalty_upper_{FACTOR}"]
 
 ```
-Run the selection
+Run the selection. In this run we have not seeded any specific number of genes, curious what it comes up with.
 ```{python}
 # create an instance of the ProbesetSelector class
 selector_highexpression = sp.se.ProbesetSelector(
     adata,
     n=None,
-    celltype_key="celltype",
+    celltype_key="Manuscript_Identity",
     verbosity=1,
     save_dir=None,
     pca_penalties=["expr_penalty_lower", "expr_penalty_upper"],
@@ -185,12 +191,64 @@ selector_highexpression = sp.se.ProbesetSelector(
 ```{python}
 selector_highexpression.select_probeset()
 ```
+### Export probes for simulations
+```{python}
+selector_highexpression.probeset[selector_highexpression.probeset.selection].to_csv('SPAPROS-highexpression.csv')
+```
+
+### Quick summary of selected probes
+What is the distribution of chosen probes among methods?
+```{python}
+selector_highexpression.plot_gene_overlap()
+```
+
+```{python}
+# list probes
+selector_highexpression.probeset.index[selector_highexpression.probeset.selection]
+```
+Table of characteristics for selected probes
+```{python}
+probe_candidates = selector_highexpression.probeset[selector_highexpression.probeset.selection]
+probe_candidates
+```
+### Dotplots of probeset split by selection method
+#### Cluster markers (DE 1vs all)
+```{python}
+probes = probe_candidates[(probe_candidates['celltypes_DE_1vsall']!='')]
+probes = probes.sort_values('celltypes_DE')
+sc.pl.dotplot(adata, probes.index[0:40], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[40::], groupby='Manuscript_Identity', dendrogram=False)
+```
+#### Nuanced cluster markers (celltypes_DE_specific)
+```{python}
+probes = probe_candidates[(probe_candidates['celltypes_DE_specific']!='')]
+probes = probes.sort_values('celltypes_DE')
+sc.pl.dotplot(adata, probes.index[0:15], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[15::], groupby='Manuscript_Identity', dendrogram=False)
+```
+#### PCA based (celltypes_DE_specific)
+```{python}
+probes = probe_candidates[(probe_candidates['pca_selected'])]
+probes = probes.sort_values('celltypes_DE')
+sc.pl.dotplot(adata, probes.index[0:33], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[33:66], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[66::], groupby='Manuscript_Identity', dendrogram=False)
+```
+#### Probset cross-correlation
+How well are probes correlated with each other?
+```{python}
+
+```
 
 
 # Probeset performance evaluation within SPAPROS
 Set up evaluation.
 ```{python}
-evaluator = sp.ev.ProbesetEvaluator(adata, verbosity=0, results_dir=None)
+# I think there is at least one bug in the code that expects "celltype" as an element.
+adata.obs['celltype']=adata.obs['Manuscript_Identity']
+
+# instantiate evaluator
+evaluator = sp.ev.ProbesetEvaluator(adata, celltype_key='Manuscript_Identity', metrics={'cluster_similarity','knn_overlap','forest_clfs','marker_corr','gene_corr'}, verbosity=2, results_dir=None)
 ```
 
 #### Reference: trial lung panel
@@ -202,6 +260,19 @@ evaluator.evaluate_probeset(xenium_panel1_genes, set_id="Xenium Lung Trial")
 ```
 #### SPAPROS basic probeset
 ```{python, eval=F}
-evaluator.evaluate_probeset(probes.index, set_id="SPAPROS basic")
+evaluator.evaluate_probeset(selector.probeset.index[selector.probeset.selection], set_id="SPAPROS basic")
+```
+#### SPAPROS high expression minimal probeset
+```{python}
+evaluator.evaluate_probeset(selector_highexpression.probeset.index[selector_highexpression.probeset.selection].tolist(), set_id="SPAPROS high expression minimal")
+```
+```{python}
+evaluator.summary_statistics()
+evaluator.plot_summary()
+```
+
+```{python}
+# vignette uses a different method, this is the one in the wrapper functions listing
+evaluator.plot_marker_corr()
 ```
 

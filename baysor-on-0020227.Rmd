@@ -25,11 +25,37 @@ python ../filter_transcripts.py -transcript transcripts.csv
 # Baysor preview
 Generates an HTML preview file. Note that the command in 0.6.2 is lowercase baysor. The transcript csv file should be the filtered edition.
 ```{bash}
-# Note each chunk is new terminal instance.
-export PATH="$HOME/bin/Baysor/bin:$PATH"
-
-baysor preview -x x_location -y y_location -z z_location -g feature_name ./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.csv
+~/.julia/bin/baysor preview -x x_location -y y_location -z z_location -g feature_name -m 20 ./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.csv
 ```
-This call is generating errors that seems related to the installation (10X says the same.)
+
+
+# Baysor without reference nuclei
+Recommend this be run inside a screen. Note that, in the absence of a prior segmentation, scale must be set. 
+```{bash, eval=F}
+~/.julia/bin/baysor run -x x_location -y y_location -z z_location -g feature_name -m 20 -s 7 ./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.csv
+
+```
+
+# Baysor with reference nuclei
+Xenium code generates a csv file with cell_id but it is a string. All tested versions (docker 0.5.0, julia 0.6.2) requires integer cell id. Therefore generate a second csv file that has an extra column that has a corresponding integer. 
+```{r}
+transcript.csvpath <- './output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.csv'
+filteredtranscripts <- read.csv('./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.csv')
+# as.numeric converts a factor to its levels. Since levels are guaranteed to uniquely map to original elements, the level number should also be uniquely mapping
+filteredtranscripts$cell_id_int <- as.numeric(as.factor(filteredtranscripts$cell_id))
+
+# Baysor expects unassigned transcripts to have an integer value 0. Fortunately levels are never 0. also in 0020227 there are very few transcripts unassigned, like a countable number out of hundreds of millions.
+filteredtranscripts[filteredtranscripts$cell_id == 'UNASSIGNED', `cell_id_int`] <- 0
+
+#Write out
+write.csv(filteredtranscripts, 
+          file=paste0(substr(transcript.csvpath,1,nchar(transcript.csvpath)-4),'.cellINT.csv')
+)
+```
+Recommend this be run inside a screen. Note that, given a prior segmentation, scale can be learned by package rather than specified. 10X notes that scale flag heavily influences results so maybe this is better. 
+```{bash, eval=F}
+~/.julia/bin/baysor run -x x_location -y y_location -z z_location -g feature_name -m 20 -p --prior-segmentation-confidence 0.5 ./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.cellINT.csv :cell_id_int
+```
+
 
 
