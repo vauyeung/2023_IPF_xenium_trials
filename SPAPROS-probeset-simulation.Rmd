@@ -1,0 +1,186 @@
+---
+title: "Simulation of SPAPROS probesets for spatial transcriptomics"
+output:
+  github_document:
+    toc: true
+  html_notebook:
+    toc: true
+---
+
+For probe-based spatial transcriptomics, the number and identity of genes that have probesets is limited. This script queries how this restricted gene set might perform in cell identification by routine clustering.
+
+# Environment
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(Seurat)
+library(SeuratWrappers)
+library(RColorBrewer)
+spectral.colors <- colorRampPalette(rev(brewer.pal(9,'Spectral')))
+```
+
+## Read in IPF Cell Atlas (GSE136831)
+This notebook depends on the output of the read-in script. for convenience, can bypass script by loading stored Seurat object directly.
+```{r}
+# This is more reliable
+#source(knitr::purl("IPF-Cell-Atlas__read-in.Rmd", quiet=TRUE))
+knitr::knit("IPF-Cell-Atlas__read-in.Rmd", output = tempfile())
+```
+```{r, eval=FALSE}
+# faster
+load('ipfatlas.cells_fromd8d92b9.Robj')
+```
+
+# Simulate SPAPROS basic probeset
+This panel used SPAPROS to identify 200 genes using basic paremeters, no restrictions on expression etc.
+```{r}
+basic200.genes <- read.csv('SPAPROS-basic200.csv', header = TRUE)$X
+```
+```{r}
+ipfatlas.basic200.cells <- subset(ipfatlas.cells, features=basic200.genes)
+```
+Some genes are occasionally missing. These are the missing genes:
+```{r}
+setdiff(basic200.genes, rownames(ipfatlas.basic200.cells))
+```
+What is the overall expression of these genes
+```{r}
+VlnPlot(ipfatlas.basic200.cells, 'nCount_RNA', pt.size=0) + scale_y_continuous(trans='log10')
+```
+
+## Standard clustering
+```{r}
+ipfatlas.basic200.cells <- NormalizeData(ipfatlas.basic200.cells)
+ipfatlas.basic200.cells <- FindVariableFeatures(ipfatlas.basic200.cells)
+ipfatlas.basic200.cells <- ScaleData(ipfatlas.basic200.cells, features=rownames(ipfatlas.basic200.cells))
+ipfatlas.basic200.cells <- RunPCA(ipfatlas.basic200.cells)
+ipfatlas.basic200.cells <- RunUMAP(ipfatlas.basic200.cells, dims=1:30)
+```
+```{r}
+DimPlot(ipfatlas.basic200.cells, group.by='CellType_Category')
+DimPlot(ipfatlas.basic200.cells, group.by='Manuscript_Identity')
+DimPlot(ipfatlas.basic200.cells, group.by='Subclass_Cell_Identity')
+DimPlot(ipfatlas.basic200.cells, group.by='Subject_Identity')
+DimPlot(ipfatlas.basic200.cells, group.by='Disease_Identity')
+```
+## Explore PCA contributions
+Genes have expression correlated with each other, and some of those modules are more useful than others in separating populations of cells. 
+First establish how many PCAs explain most of the variance.
+```{r}
+ElbowPlot(ipfatlas.basic200.cells)
+```
+```{r}
+DimHeatmap(ipfatlas.basic200.cells, dims = 1:3, cells = 200, balanced = TRUE)
+DimHeatmap(ipfatlas.basic200.cells, dims = 4:6, cells = 200, balanced = TRUE)
+DimHeatmap(ipfatlas.basic200.cells, dims = 7:9, cells = 200, balanced = TRUE)
+```
+
+
+## Subset epithelium
+```{r}
+ipfatlas.basic200.epi.cells <- subset(ipfatlas.basic200.cells, subset=CellType_Category=='Epithelial')
+```
+
+```{r}
+ipfatlas.basic200.epi.cells <- NormalizeData(ipfatlas.basic200.epi.cells)
+ipfatlas.basic200.epi.cells <- FindVariableFeatures(ipfatlas.basic200.epi.cells)
+ipfatlas.basic200.epi.cells <- ScaleData(ipfatlas.basic200.epi.cells, features=rownames(ipfatlas.basic200.epi.cells))
+ipfatlas.basic200.epi.cells <- RunPCA(ipfatlas.basic200.epi.cells)
+ipfatlas.basic200.epi.cells <- RunUMAP(ipfatlas.basic200.epi.cells, dims=1:30)
+```
+```{r}
+DimPlot(ipfatlas.basic200.epi.cells, group.by='Manuscript_Identity')
+DimPlot(ipfatlas.basic200.epi.cells, group.by='Subclass_Cell_Identity')
+DimPlot(ipfatlas.basic200.epi.cells, group.by='Subject_Identity')
+DimPlot(ipfatlas.basic200.epi.cells, group.by='Disease_Identity')
+```
+
+## Subset fibroblasts
+```{r}
+ipfatlas.basic200.fib.cells <- subset(ipfatlas.basic200.cells, subset=CellType_Category=='Stromal')
+```
+
+```{r}
+ipfatlas.basic200.fib.cells <- NormalizeData(ipfatlas.basic200.fib.cells)
+ipfatlas.basic200.fib.cells <- FindVariableFeatures(ipfatlas.basic200.fib.cells)
+ipfatlas.basic200.fib.cells <- ScaleData(ipfatlas.basic200.fib.cells, features=rownames(ipfatlas.basic200.fib.cells))
+ipfatlas.basic200.fib.cells <- RunPCA(ipfatlas.basic200.fib.cells)
+ipfatlas.basic200.fib.cells <- RunUMAP(ipfatlas.basic200.fib.cells, dims=1:30)
+```
+```{r}
+DimPlot(ipfatlas.basic200.fib.cells, group.by='Manuscript_Identity')
+DimPlot(ipfatlas.basic200.fib.cells, group.by='Subclass_Cell_Identity')
+DimPlot(ipfatlas.basic200.fib.cells, group.by='Subject_Identity')
+DimPlot(ipfatlas.basic200.fib.cells, group.by='Disease_Identity')
+```
+
+# Simulate SPAPROS high expression panel
+Targeted gene expression that is high on the order of KRT7 or COL1A1. Didn't do that well on removing too-high expressors. Also allowed SPAPROS to choose the minimum informative number of genes, so it is quite small. 
+```{r}
+highexpression.genes <- read.csv('SPAPROS-highexpression.csv', header = TRUE)$X
+```
+```{r}
+ipfatlas.highexpression.cells <- subset(ipfatlas.cells, features=highexpression.genes)
+```
+Some genes in the Cosmx panel are not in the IPF dataset. Many of these genes are listed with a "/" suggesting that the probe cannot distinguish these isoforms. For simplicity I am not going to clean up the gene list. So actual list is a bit shorter. These are the missing genes:
+```{r}
+setdiff(highexpression.genes, rownames(ipfatlas.cells))
+```
+What is our average expression?
+```{r}
+VlnPlot(ipfatlas.highexpression.cells, 'nCount_RNA', pt.size=0) + scale_y_continuous(trans='log10')
+```
+
+
+## Standard clustering
+```{r}
+ipfatlas.highexpression.cells <- NormalizeData(ipfatlas.highexpression.cells)
+ipfatlas.highexpression.cells <- FindVariableFeatures(ipfatlas.highexpression.cells)
+ipfatlas.highexpression.cells <- ScaleData(ipfatlas.highexpression.cells, features=rownames(ipfatlas.highexpression.cells))
+ipfatlas.highexpression.cells <- RunPCA(ipfatlas.highexpression.cells)
+ipfatlas.highexpression.cells <- RunUMAP(ipfatlas.highexpression.cells, dims=1:30)
+```
+```{r}
+DimPlot(ipfatlas.highexpression.cells, group.by='CellType_Category')
+DimPlot(ipfatlas.highexpression.cells, group.by='Manuscript_Identity')
+DimPlot(ipfatlas.highexpression.cells, group.by='Subclass_Cell_Identity')
+DimPlot(ipfatlas.highexpression.cells, group.by='Subject_Identity')
+DimPlot(ipfatlas.highexpression.cells, group.by='Disease_Identity')
+```
+
+## Subset epithelium
+```{r}
+ipfatlas.highexpression.epi.cells <- subset(ipfatlas.highexpression.cells, subset=CellType_Category=='Epithelial')
+```
+
+```{r}
+ipfatlas.highexpression.epi.cells <- NormalizeData(ipfatlas.highexpression.epi.cells)
+ipfatlas.highexpression.epi.cells <- FindVariableFeatures(ipfatlas.highexpression.epi.cells)
+ipfatlas.highexpression.epi.cells <- ScaleData(ipfatlas.highexpression.epi.cells, features=rownames(ipfatlas.highexpression.epi.cells))
+ipfatlas.highexpression.epi.cells <- RunPCA(ipfatlas.highexpression.epi.cells)
+ipfatlas.highexpression.epi.cells <- RunUMAP(ipfatlas.highexpression.epi.cells, dims=1:30)
+```
+```{r}
+DimPlot(ipfatlas.highexpression.epi.cells, group.by='Manuscript_Identity')
+DimPlot(ipfatlas.highexpression.epi.cells, group.by='Subclass_Cell_Identity')
+DimPlot(ipfatlas.highexpression.epi.cells, group.by='Subject_Identity')
+DimPlot(ipfatlas.highexpression.epi.cells, group.by='Disease_Identity')
+```
+
+## Subset fibroblasts
+```{r}
+ipfatlas.highexpression.fib.cells <- subset(ipfatlas.highexpression.cells, subset=CellType_Category=='Stromal')
+```
+
+```{r}
+ipfatlas.highexpression.fib.cells <- NormalizeData(ipfatlas.highexpression.fib.cells)
+ipfatlas.highexpression.fib.cells <- FindVariableFeatures(ipfatlas.highexpression.fib.cells)
+ipfatlas.highexpression.fib.cells <- ScaleData(ipfatlas.highexpression.fib.cells, features=rownames(ipfatlas.highexpression.fib.cells))
+ipfatlas.highexpression.fib.cells <- RunPCA(ipfatlas.highexpression.fib.cells)
+ipfatlas.highexpression.fib.cells <- RunUMAP(ipfatlas.highexpression.fib.cells, dims=1:30)
+```
+```{r}
+DimPlot(ipfatlas.highexpression.fib.cells, group.by='Manuscript_Identity')
+DimPlot(ipfatlas.highexpression.fib.cells, group.by='Subclass_Cell_Identity')
+DimPlot(ipfatlas.highexpression.fib.cells, group.by='Subject_Identity')
+DimPlot(ipfatlas.highexpression.fib.cells, group.by='Disease_Identity')
+```
