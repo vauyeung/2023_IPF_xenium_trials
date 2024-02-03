@@ -46,6 +46,14 @@ ipf3.xen <- NormalizeData(ipf3.xen)
 ipfatlas.cells <- NormalizeData(ipfatlas.cells)
 ```
 
+## Filter xenium dataset
+In this iteration of this analysis, will do some base filtering of the dataset. Many cells had essentially zero or few counts, these cells are noise and I think realistically those cells are lost to us; so we should evaluate probeset performance in cells that actually returned reasonable data. 
+
+```{r}
+ipf3.xen <- subset(ipf3.xen, subset=nCount_Xenium>20 & nFeature_Xenium>4)
+```
+
+
 # Comparison of raw counts between scRNA and Xenium
 Kind of stupidly one assumes that that among cells that express a target transcript (count>0), then there ought to be some correlation between single cell sequencing and spatial detection. With the caveat that segmentation is a mess. I am hesitant to use total transcript detection because some targets are intended to identify rare cells and (correctly) have low total detection across the slide.
 ## Housekeeping
