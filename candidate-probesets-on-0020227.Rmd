@@ -1,0 +1,107 @@
+---
+title: "Check candidate probes on 0020227"
+output: 
+  github_document:
+    toc: true
+  html_notebook:
+    toc: true
+---
+
+To the extent that selected genes are present on existing xenium panel, how do they perform on dataset in practice. Here we will define practical utility as detected and differential expression across clusters after processing xenium data. Clusters are intentionally and explicitly unnamed.
+
+# Environment
+```{r}
+library(Seurat)
+library(tidyverse)
+```
+
+# Prepare xenium dataset
+```{r}
+ipf3.xen <- LoadXenium('output-XETG00143__0020227__Region_1__20231214__022306/')
+```
+
+## Routine filter
+Subset somewhat strictly on feature count. Based on Analysis on 0220227 notebook that demonstraated noise from low/zero-detection cells. Thresholds chosen on the theory that if there was only few features, but they had counts, it is probably still interpretable. Previous notebook showed that these cutoffs will 
+```{r}
+ipf3.filtered.xen <- subset(ipf3.xen, subset=nCount_Xenium>20 & nFeature_Xenium>4)
+print('original dataset:')
+print(ncol(ipf3.xen))
+print('filtered dataset:')
+print(ncol(ipf3.filtered.xen))
+```
+```{r}
+# housekeeping, never enough
+rm(ipf3.xen)
+gc()
+```
+
+## Routine clustering
+```{r}
+ipf3.filtered.xen <- NormalizeData(ipf3.filtered.xen, verbose = F)
+ipf3.filtered.xen <- FindVariableFeatures(ipf3.filtered.xen, verbose=F)
+ipf3.filtered.xen <- ScaleData(ipf3.filtered.xen, verbose=F)
+ipf3.filtered.xen <- RunPCA(ipf3.filtered.xen, features = rownames(ipf3.filtered.xen), verbose=F)
+ipf3.filtered.xen <- RunUMAP(ipf3.filtered.xen, dims = 1:30, verbose=F)
+
+# modification to reduce cluster number. i think the sparsity of data means that pruned edges leads to more communities.
+ipf3.filtered.xen <- FindNeighbors(ipf3.filtered.xen, reduction='pca', dims=1:30, prune.SNN=0) 
+ipf3.filtered.xen <- FindClusters(ipf3.filtered.xen, resolution = 1)
+```
+## Routine sanity checks
+```{r}
+DimPlot(ipf3.filtered.xen)
+FeaturePlot(ipf3.filtered.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf3.filtered.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf3.filtered.xen, features = c("EPCAM", "ITGB6", "AGR2", "ABCA3"), min.cutoff='q1', max.cutoff='q90')
+```
+
+# Evaluate expressed, highly-variable genes
+Analysis for this table was performed in the Probeset Performance notebook.
+```{r}
+probesets_xeniumperformance <- read_csv(file='probesets_xeniumperformance.csv')
+```
+Filter this for those genes which are highly variable across cells, and have some threshold detection rate in filtered cells. See Probeset Performance notebook. Genes not included in this list are not uninformative, but these genes would be definitely useful. Notable genes that did not make these cutoffs are ones like COL1A1, because while variance is high, it is not particularly high after adjusting for expression level. 
+```{r}
+probesets_xeniumperformance %>% filter(xeniumAvg > 1.35) %>% filter(variance.standardized > 1.20) -> probesets_selected
+```
+```{r, fig.height=11, fig.width=8}
+p <- DotPlot(ipf3.filtered.xen, features=probesets_selected$gene)
+p + coord_flip() + scale_x_discrete(limits = rev)
+```
+Unfortunately this heatmap is alphabetically ordered so it is a bit of a pain in the ass to interpret. For cell-based heatmaps, a lot of trouble getting 100k cells to display correctly, export directly to file.
+```{r, eval=F}
+p <- DoHeatmap(ipf3.filtered.xen, features=probesets_selected$gene)
+ggsave(filename='plot.png', plot=p, device='png', width=30, height=15)
+```
+
+# Evaluate candidate probesets from Tatsuya
+
+```{r}
+probesets_fibroblastproposed <- read_csv(file='fibroblastmarkers_20240201.csv')
+probesets_selected <- probesets_fibroblastproposed$Gene
+```
+```{r, fig.height=3, fig.width=8}
+p <- DotPlot(ipf3.filtered.xen, features=probesets_selected)
+p + coord_flip() + scale_x_discrete(limits = rev)
+```
+For cell-based heatmaps, a lot of trouble getting 100k cells to display correctly, export directly to file.
+```{r, eval=F}
+p <- DoHeatmap(ipf3.filtered.xen, features=probesets_selected)
+ggsave(filename='plot.png', plot=p, device='png', width=20, height=5)
+```
+```{r, eval=F}
+p <- DoHeatmap(ipf3.filtered.xen, features=probesets_selected, slot='data')
+ggsave(filename='plot.png', plot=p, device='png', width=20, height=5)
+```
+```{r, eval=F}
+p <- DoHeatmap(ipf3.filtered.xen, features=probesets_selected, slot='counts')
+ggsave(filename='plot.png', plot=p, device='png', width=20, height=5)
+```
+Generate umap embeddings for every gene here.
+```{r}
+FeaturePlot(ipf3.filtered.xen, features = c("COL1A1", "RGS5", "PLA2G2A", "MFAP5"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf3.filtered.xen, features = c("PI16", "INMT", "SCN7A", "MYH11"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf3.filtered.xen, features = c("CNN1", "SFRP2", "CTHRC1", "POSTN"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipf3.filtered.xen, features = c("CNN1", "SFRP2", "CTHRC1", "COL8A1"), min.cutoff='q1', max.cutoff='q90')
+```
+
