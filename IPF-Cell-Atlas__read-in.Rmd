@@ -1,0 +1,48 @@
+---
+title: "IPF Cell Atlas: Read-in"
+output:
+  github_document:
+    toc: true
+  html_notebook:
+    toc: true
+---
+
+This version uses the Imran integration that has developmental cells built-in.
+
+# Environment
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(Seurat)
+library(SeuratWrappers)
+```
+# Read in GSE136831
+```{r}
+original.dir <- ('~/vcalab-files/datasets/GSE136831_IPF_Cell_Atlas/')
+metadata <- read_tsv(paste0(original.dir,'GSE136831_AllCells.Samples.CellType.MetadataTable.txt.gz'))
+metadata <- as.data.frame(metadata)
+rownames(metadata) <- metadata$CellBarcode_Identity
+
+features <- read_tsv(paste0(original.dir,'GSE136831_AllCells.GeneIDs.txt.gz'))
+cells <- read_tsv(paste0(original.dir,'GSE136831_AllCells.cellBarcodes.txt.gz'), col_names = F)
+
+counts <- Matrix::readMM(paste0(original.dir,'GSE136831_RawCounts_Sparse.mtx.gz'))
+rownames(counts) <- features$HGNC_EnsemblAlt_GeneID
+colnames(counts) <- cells$X1
+```
+```{r}
+ipfatlas.cells <- CreateSeuratObject(counts=counts, meta.data=metadata)
+```
+```{r}
+rm(counts,cells,features,metadata)
+gc()
+```
+
+# Standard preprocessing
+## Filter overall dataset
+```{r}
+ipfatlas.cells[['percent.mt']] <- PercentageFeatureSet(ipfatlas.cells, pattern='^MT-')
+VlnPlot(ipfatlas.cells, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = 0)
+```
+```{r}
+ipfatlas.cells <- subset(ipfatlas.cells, subset = nFeature_RNA > 200 & nFeature_RNA < 5000 & percent.mt < 10)
+```
