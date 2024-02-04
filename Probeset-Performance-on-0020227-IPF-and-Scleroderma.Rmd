@@ -229,3 +229,34 @@ ggplot(data=nonzeroaverages, aes(x=ipfatlasNormAvg, y=xeniumAvg)) +
 ```{r}
 filter(nonzeroaverages, winner1)
 ```
+
+
+# Identify genes in filtered xenium that are informative/variable
+```{r}
+ipf3.xen <- FindVariableFeatures(ipf3.xen, verbose=F,
+                                 dispersion.cutoff = 1.2)
+```
+```{r}
+p <- VariableFeaturePlot(ipf3.xen)
+LabelPoints(plot = p, points = rownames(ipf3.xen), repel = TRUE)
+```
+## merge to one table and export
+```{r}
+# kludging for variance calculations
+xeniumvariances <- HVFInfo(ipf3.xen)[VariableFeatures(ipf3.xen), ] %>%
+  select(variance.standardized)
+xeniumvariances$gene <- rownames(xeniumvariances)
+xeniumvariances <- as_tibble(xeniumvariances)
+xeniumvariances
+
+```
+
+```{r}
+# kludging to merge
+scratch2 <- full_join(nonzeroaverages, xeniumvariances, by='gene')
+scratch2
+```
+```{r}
+write.csv(scratch2, file='probesets_xeniumperformance.csv')
+```
+

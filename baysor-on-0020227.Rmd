@@ -32,7 +32,7 @@ Generates an HTML preview file. Note that the command in 0.6.2 is lowercase bays
 # Baysor without reference nuclei
 Recommend this be run inside a screen. Note that, in the absence of a prior segmentation, scale must be set. 
 ```{bash, eval=F}
-~/.julia/bin/baysor run -x x_location -y y_location -z z_location -g feature_name -p -m 20 -s 7 -o ./output-XETG00143__0020227__Region_1__20231214__022306/baysor_nopriors ./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.csv
+~/.julia/bin/baysor run -x x_location -y y_location -z z_location -g feature_name -p -m 20 -s 7 --save-polygons=geojson -o ./output-XETG00143__0020227__Region_1__20231214__022306/baysor_nopriors ./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.csv
 
 ```
 Run 10X post-processing on this to convert back to a cells-by-count matrix. Current version of baysor produces this also, but whatever, let's follow a standard procedure for now.
@@ -59,7 +59,11 @@ write.csv(filteredtranscripts,
 ```
 Recommend this be run inside a screen. Note that, given a prior segmentation, scale can be learned by package rather than specified. 10X notes that scale flag heavily influences results so maybe this is better. 
 ```{bash, eval=F}
-~/.julia/bin/baysor run -x x_location -y y_location -z z_location -g feature_name -m 20 -p --prior-segmentation-confidence 0.5 -o ./output-XETG00143__0020227__Region_1__20231214__022306/baysor_withpriors ./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.cellINT.csv :cell_id_int
+~/.julia/bin/baysor run -x x_location -y y_location -z z_location -g feature_name -m 20 -p --prior-segmentation-confidence 0.5 --save-polygons=geojson -o ./output-XETG00143__0020227__Region_1__20231214__022306/baysor_withpriors ./output-XETG00143__0020227__Region_1__20231214__022306/X0.0-24000.0_Y0.0-24000.0_filtered_transcripts.cellINT.csv :cell_id_int
+```
+Run 10X post-processing on this to convert back to a cells-by-count matrix. Current version of baysor produces this also, but whatever, let's follow a standard procedure for now. 
+```{bash}
+./map_transcripts.py -baysor ./output-XETG00143__0020227__Region_1__20231214__022306/baysor_withpriors/segmentation.csv -out baysor_withpriors
 ```
 
 

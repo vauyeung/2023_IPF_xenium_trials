@@ -88,8 +88,8 @@ DimHeatmap(ipf3.filtered.xen, dims = 7:9, cells = 100, balanced = TRUE)
 
 ```{r}
 # modification to reduce cluster number. i think the sparsity of data means that pruned edges leads to more communities.
-ipf3.filtered.xen <- FindNeighbors(ipf3.filtered.xen, reduction='pca', dims=1:17, prune.SNN=0) 
-ipf3.filtered.xen <- FindClusters(ipf3.filtered.xen, resolution = 0.4)
+ipf3.filtered.xen <- FindNeighbors(ipf3.filtered.xen, reduction='pca', dims=1:30, prune.SNN=0) 
+ipf3.filtered.xen <- FindClusters(ipf3.filtered.xen, resolution = 0.6)
 ```
 ```{r}
 DimPlot(ipf3.filtered.xen)
