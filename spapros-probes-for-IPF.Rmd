@@ -136,6 +136,71 @@ sc.pl.dotplot(adata, probes.index[0:33], groupby='Manuscript_Identity', dendrogr
 sc.pl.dotplot(adata, probes.index[33:66], groupby='Manuscript_Identity', dendrogram=False)
 sc.pl.dotplot(adata, probes.index[66::], groupby='Manuscript_Identity', dendrogram=False)
 ```
+## SPAPROS with hand-selected genes
+We already have some xenium runs where some probesets have reasonable average detection and show up as highly-variable genes in clustering of the Xenium data. Therefore I regard these genes as presumptively high-performance informative genes. Including these in the diversity panel will mitigate the risk of selecting genes whose probesets do not perform well for technical reasons. Therefore ask SPAPROS to include these genes and then modify its other selections accordingly.
+```{r}
+probesets_xeniumperformance <- read_csv(file='probesets_xeniumperformance.csv')
+probesets_xeniumperformance %>% filter(xeniumAvg > 1.35) %>% filter(variance.standardized > 1.20) -> probesets_selected
+probesets_selected <- probesets_selected$gene
+length(probesets_selected)
+```
+```{python}
+preselected_genes=r.probesets_selected
+```
+```{python}
+# Try to account for selected genes that are in PCA genes.
+tmp = sp.se.select_pca_genes(adata, n=adata.n_vars, inplace=False)["selection_ranking"]
+n_pca_genes = tmp.loc[~tmp.index.isin(preselected_genes)].sort_values().iloc[:20].max().astype(int)
+```
+For PCA ranking genes, there are only 2 (S100A8 and AREG) that are in the top 100 PCA genes. So I think we are reasonably safe to just add more PCA genes on top of these.
+```{python}
+selector = sp.se.ProbesetSelector(adata, n=200, celltype_key="Manuscript_Identity", verbosity=0, save_dir=None, preselected_genes=preselected_genes)
+selector.select_probeset()
+```
+
+### Export probes for simulations
+```{python}
+selector.probeset[selector.probeset.selection].to_csv('SPAPROS-200withXeniumCuration.csv')
+```
+
+### Quick summary of selected probes
+What is the distribution of chosen probes among methods?
+```{python}
+selector.plot_gene_overlap()
+```
+```{python}
+# list probes
+selector.probeset.index[selector.probeset.selection]
+```
+Table of characteristics for selected probes
+```{python}
+probe_candidates = selector.probeset[selector.probeset.selection]
+probe_candidates
+```
+### Dotplots of probeset split by selection method
+#### Cluster markers (DE 1vs all)
+```{python}
+probes = probe_candidates[(probe_candidates['celltypes_DE_1vsall']!='')]
+probes = probes.sort_values('celltypes_DE')
+sc.pl.dotplot(adata, probes.index[0:40], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[40::], groupby='Manuscript_Identity', dendrogram=False)
+```
+#### Nuanced cluster markers (celltypes_DE_specific)
+```{python}
+probes = probe_candidates[(probe_candidates['celltypes_DE_specific']!='')]
+probes = probes.sort_values('celltypes_DE')
+sc.pl.dotplot(adata, probes.index[0:25], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[25::], groupby='Manuscript_Identity', dendrogram=False)
+```
+#### PCA based (celltypes_DE_specific)
+```{python}
+probes = probe_candidates[(probe_candidates['pca_selected'])]
+probes = probes.sort_values('celltypes_DE')
+sc.pl.dotplot(adata, probes.index[0:33], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[33:66], groupby='Manuscript_Identity', dendrogram=False)
+sc.pl.dotplot(adata, probes.index[66::], groupby='Manuscript_Identity', dendrogram=False)
+```
+
 ## SPAPROS with expression penalties
 Penalties are 0 to 1, where 0 is bad and 1 is best (i.e., no penalty). Behavior of penalties seems to depend on the the source. If identified by the package, it's a multiplier. If the source is from a manually curated list, all genes with *any* penalty is removed.
 
