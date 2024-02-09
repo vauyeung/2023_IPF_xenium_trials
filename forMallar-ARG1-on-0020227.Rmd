@@ -1,0 +1,71 @@
+---
+title: "ARG1 macrophages on 0020227 for Mallar"
+output: 
+  github_document:
+    toc: true
+  html_notebook:
+    toc: true
+---
+# Environment
+```{r}
+library(Seurat)
+library(tidyverse)
+```
+## Read in Xenium 
+```{r}
+ipf3.xen <- LoadXenium('output-XETG00143__0020227__Region_1__20231214__022306/')
+```
+# General processing on 0020227 
+## Filter
+On the theory that if there was only few features, but they had counts, it is probably still interpretable.
+```{r}
+ipf3.filtered.xen <- subset(ipf3.xen, subset=nCount_Xenium>20 & nFeature_Xenium>4)
+```
+```{r}
+print('original dataset:')
+print(ncol(ipf3.xen))
+print('filtered dataset:')
+print(ncol(ipf3.filtered.xen))
+```
+```{r}
+# cleanup cleanup
+rm(ipf3.xen)
+gc()
+```
+
+## Standard Processing
+```{r}
+DefaultAssay(ipf3.filtered.xen) <- 'Xenium'
+ipf3.filtered.xen <- NormalizeData(ipf3.filtered.xen, verbose=F)
+ipf3.filtered.xen <- FindVariableFeatures(ipf3.filtered.xen, verbose=F) # defaults to finding 2000, which would be all of them, but downstream expects this.
+ipf3.filtered.xen <- ScaleData(ipf3.filtered.xen, verbose=F)
+ipf3.filtered.xen <- RunPCA(ipf3.filtered.xen, npcs = 30, features = rownames(ipf3.filtered.xen), verbose=F)
+ipf3.filtered.xen <- RunUMAP(ipf3.filtered.xen, dims = 1:30, verbose=F)
+```
+## Modified Clustering
+Modification to reduce cluster number. i think the sparsity of data means that pruned edges leads to more communities. Major change is the prune.SNN parameter.
+```{r}
+ipf3.filtered.xen <- FindNeighbors(ipf3.filtered.xen, reduction='pca', dims=1:30, prune.SNN=0) 
+ipf3.filtered.xen <- FindClusters(ipf3.filtered.xen, resolution = 0.6)
+```
+```{r}
+DimPlot(ipf3.filtered.xen)
+```
+# ARG1 for Mallar
+```{r}
+FeaturePlot(ipf3.filtered.xen, features=c('ARG1','IL13','IL6'),
+            min.cutoff='q25', max.cutoff='q90', order=T)
+```
+```{r}
+DotPlot(ipf3.filtered.xen, features=c('ARG1','IL13','IL6'))
+```
+```{r}
+ImageFeaturePlot(ipf3.filtered.xen, features=c('ARG1'),
+            min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
+ImageFeaturePlot(ipf3.filtered.xen, features=c('IL13'),
+            min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
+ImageFeaturePlot(ipf3.filtered.xen, features=c('IL6'),
+            min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
+```
+
+
