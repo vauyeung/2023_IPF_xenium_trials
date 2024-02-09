@@ -10,7 +10,7 @@ output:
 This is a slide that was run in December 2023. The slide includes one section from the same block (the "good" block) done with the limited library on 0010972 that gave some decent data. One triangular piece is a scleroderma lung.
 
 # Environment
-```{r}
+```{r, results=F}
 library(Seurat)
 library(tidyverse)
 ```
