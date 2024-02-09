@@ -52,15 +52,19 @@ ipf3.filtered.xen <- FindClusters(ipf3.filtered.xen, resolution = 0.6)
 DimPlot(ipf3.filtered.xen)
 ```
 # ARG1 for Mallar
-```{r}
-FeaturePlot(ipf3.filtered.xen, features=c('ARG1','IL13','IL6'),
+```{r, fig.height=6, fig.width=6}
+FeaturePlot(ipf3.filtered.xen, features=c('ARG1','IL13','IL6','IL4','IL5'),
             min.cutoff='q25', max.cutoff='q90', order=T)
 ```
 ```{r}
-DotPlot(ipf3.filtered.xen, features=c('ARG1','IL13','IL6'))
+DotPlot(ipf3.filtered.xen, features=c('ARG1','IL4','IL5','IL13','IL6'))
 ```
 ```{r}
 ImageFeaturePlot(ipf3.filtered.xen, features=c('ARG1'),
+            min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
+ImageFeaturePlot(ipf3.filtered.xen, features=c('IL4'),
+            min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
+ImageFeaturePlot(ipf3.filtered.xen, features=c('IL5'),
             min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
 ImageFeaturePlot(ipf3.filtered.xen, features=c('IL13'),
             min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))

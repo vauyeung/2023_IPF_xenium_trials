@@ -128,8 +128,8 @@ gc()
 ```
 
     ##            used  (Mb) gc trigger   (Mb)  max used   (Mb)
-    ## Ncells 11714250 625.7   85615447 4572.4 107019308 5715.5
-    ## Vcells 60939732 465.0  274270416 2092.6 356942971 2723.3
+    ## Ncells 11714517 625.7   81312316 4342.6 101640395 5428.2
+    ## Vcells 60940284 465.0  274270929 2092.6 356943528 2723.3
 
 ## Standard Processing
 
@@ -172,7 +172,7 @@ ipf3.filtered.xen <- FindClusters(ipf3.filtered.xen, resolution = 0.6)
     ## Running Louvain algorithm...
     ## Maximum modularity in 10 random starts: 0.8555
     ## Number of communities: 16
-    ## Elapsed time: 351 seconds
+    ## Elapsed time: 347 seconds
 
 ``` r
 DimPlot(ipf3.filtered.xen)
@@ -182,13 +182,17 @@ DimPlot(ipf3.filtered.xen)
     ## To disable this behavior set `raster=FALSE`
 
 ![](forMallar-ARG1-on-0020227_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
-# ARG1 for Mallar
+\# ARG1 for Mallar
 
 ``` r
-FeaturePlot(ipf3.filtered.xen, features=c('ARG1','IL13','IL6'),
+FeaturePlot(ipf3.filtered.xen, features=c('ARG1','IL13','IL6','IL4','IL5'),
             min.cutoff='q25', max.cutoff='q90', order=T)
 ```
 
+    ## Rasterizing points since number of points exceeds 100,000.
+    ## To disable this behavior set `raster=FALSE`
+    ## Rasterizing points since number of points exceeds 100,000.
+    ## To disable this behavior set `raster=FALSE`
     ## Rasterizing points since number of points exceeds 100,000.
     ## To disable this behavior set `raster=FALSE`
     ## Rasterizing points since number of points exceeds 100,000.
@@ -199,7 +203,7 @@ FeaturePlot(ipf3.filtered.xen, features=c('ARG1','IL13','IL6'),
 ![](forMallar-ARG1-on-0020227_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 ``` r
-DotPlot(ipf3.filtered.xen, features=c('ARG1','IL13','IL6'))
+DotPlot(ipf3.filtered.xen, features=c('ARG1','IL4','IL5','IL13','IL6'))
 ```
 
 ![](forMallar-ARG1-on-0020227_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
@@ -212,15 +216,29 @@ ImageFeaturePlot(ipf3.filtered.xen, features=c('ARG1'),
 ![](forMallar-ARG1-on-0020227_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
 ``` r
-ImageFeaturePlot(ipf3.filtered.xen, features=c('IL13'),
+ImageFeaturePlot(ipf3.filtered.xen, features=c('IL4'),
             min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
 ```
 
 ![](forMallar-ARG1-on-0020227_files/figure-gfm/unnamed-chunk-11-2.png)<!-- -->
 
 ``` r
-ImageFeaturePlot(ipf3.filtered.xen, features=c('IL6'),
+ImageFeaturePlot(ipf3.filtered.xen, features=c('IL5'),
             min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
 ```
 
 ![](forMallar-ARG1-on-0020227_files/figure-gfm/unnamed-chunk-11-3.png)<!-- -->
+
+``` r
+ImageFeaturePlot(ipf3.filtered.xen, features=c('IL13'),
+            min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
+```
+
+![](forMallar-ARG1-on-0020227_files/figure-gfm/unnamed-chunk-11-4.png)<!-- -->
+
+``` r
+ImageFeaturePlot(ipf3.filtered.xen, features=c('IL6'),
+            min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
+```
+
+![](forMallar-ARG1-on-0020227_files/figure-gfm/unnamed-chunk-11-5.png)<!-- -->
