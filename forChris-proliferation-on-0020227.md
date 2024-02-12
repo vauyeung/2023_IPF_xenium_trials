@@ -6,8 +6,8 @@ editor_options:
 
 # Proliferating fibroblasts on 0020227 for Chris
 
--   [Environment](#environment-environment)
-    -   [Read in Xenium](#read-in-xenium-read-in-xenium)
+-   [Environment](#environment)
+    -   [Read in Xenium](#read-in-xenium)
 -   [General processing on 0020227](#general-processing-on-0020227)
     -   [Filter](#filter)
     -   [Standard Processing](#standard-processing)
@@ -88,9 +88,9 @@ ipf3.xen <- LoadXenium('output-XETG00143__0020227__Region_1__20231214__022306/')
 ## ('-')
 ```
 
-# General processing on 0020227 {#general-processing-on-0020227}
+# General processing on 0020227
 
-## Filter {#filter}
+## Filter
 
 On the theory that if there was only few features, but they had counts,
 it is probably still interpretable.
@@ -160,7 +160,7 @@ gc()
 ## Vcells 60942580 465.0  274273042 2092.6 356945820 2723.3
 ```
 
-## Standard Processing {#standard-processing}
+## Standard Processing
 
 ``` r
 DefaultAssay(ipf3.filtered.xen) <- 'Xenium'
@@ -177,7 +177,7 @@ ipf3.filtered.xen <- RunUMAP(ipf3.filtered.xen, dims = 1:30, verbose=F)
 ## This message will be shown once per session
 ```
 
-## Modified Clustering {#modified-clustering}
+## Modified Clustering
 
 Modification to reduce cluster number. i think the sparsity of data
 means that pruned edges leads to more communities. Major change is the
@@ -220,7 +220,7 @@ DimPlot(ipf3.filtered.xen, label=T)
 
 ![](forChris-proliferation-on-0020227_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
-# Proliferation (general) {#proliferation}
+# Proliferation (general)
 
 10X core set includes: CCNA1, CCNB2, CDK1, CENPF, KIT, MKI67, PCNA,
 TOP2A.
@@ -327,7 +327,7 @@ ImageFeaturePlot(ipf3.filtered.xen, features=c('IL6'),
 
 ![](forChris-proliferation-on-0020227_files/figure-gfm/unnamed-chunk-11-3.png)<!-- -->
 
-# Fibroblast subset {#fibroblasts}
+# Fibroblast subset
 
 ``` r
 ipf3.fib.xen <- subset(ipf3.filtered.xen, idents=c(0,5,9,15))
@@ -360,7 +360,7 @@ As usual I think the cell cycle signal is strong enough that it forced
 all proliferative cells into cluster 15 across different cell types.
 Proceed and prune later.
 
-## Recluster {#recluster}
+## Recluster
 
 ``` r
 ipf3.fib.xen <- NormalizeData(ipf3.fib.xen, verbose=F)
@@ -488,7 +488,7 @@ ipf3.fib.xen <- subset(x = ipf3.fib.xen, idents = c(7,19), invert = TRUE)
 ## Warning: Not validating Seurat objects
 ```
 
-## Recluster after pruning {#recluster-after-pruning}
+## Recluster after pruning
 
 ``` r
 ipf3.fib.xen <- NormalizeData(ipf3.fib.xen, verbose=F)
@@ -623,7 +623,7 @@ DimPlot(ipf3.fib.xen, label=T)
 
 ![](forChris-proliferation-on-0020227_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
 
-## Marker learning {#markers}
+## Marker learning
 
 On the theory that there might be hidden markers of utility in the
 Xenium probeset that we could co-opt for next cycle.
@@ -688,7 +688,7 @@ DoHeatmap(ipf3.fib.xen, features = top10$gene) + NoLegend()
 
 ![](forChris-proliferation-on-0020227_files/figure-gfm/markers-heatmap.png)<!-- -->
 
-## Generate assignments file for Xenium Explorer {#assignments-XenExplorer}
+## Generate assignments file for Xenium Explorer
 
 For version 1.2.0, the instructons say:
 
