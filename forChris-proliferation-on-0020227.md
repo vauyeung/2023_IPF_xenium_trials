@@ -6,8 +6,8 @@ editor_options:
 
 # Proliferating fibroblasts on 0020227 for Chris
 
--   [Environment](#environment)
-    -   [Read in Xenium](#read-in-xenium)
+-   [Environment](#environment-environment)
+    -   [Read in Xenium](#read-in-xenium-read-in-xenium)
 -   [General processing on 0020227](#general-processing-on-0020227)
     -   [Filter](#filter)
     -   [Standard Processing](#standard-processing)
@@ -19,7 +19,7 @@ editor_options:
     -   [Marker learning](#markers)
     -   [Generate assignments file for Xenium Explorer](#assignments-XenExplorer)
 
-# Environment {#environment}
+# Environment
 
 ``` r
 library(Seurat)
@@ -60,7 +60,7 @@ library(tidyverse)
 ## ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
 ```
 
-## Read in Xenium {#read-in-xenium}
+## Read in Xenium
 
 ``` r
 ipf3.xen <- LoadXenium('output-XETG00143__0020227__Region_1__20231214__022306/')
