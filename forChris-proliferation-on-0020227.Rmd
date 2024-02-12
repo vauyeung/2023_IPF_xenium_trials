@@ -69,14 +69,7 @@ p <- DotPlot(ipf3.filtered.xen, features=c('EPCAM','ITGB6',
                                       'CCNA1','CCNB2','CDK1','CENPF','KIT','MKI67','PCNA','TOP2A'))
 p + coord_flip() + scale_x_discrete(limits = rev)
 ```
-```{r}
-ImageFeaturePlot(ipf3.filtered.xen, features=c('ARG1'),
-            min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
-ImageFeaturePlot(ipf3.filtered.xen, features=c('IL13'),
-            min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
-ImageFeaturePlot(ipf3.filtered.xen, features=c('IL6'),
-            min.cutoff='q25', max.cutoff='q60', cols=c('white','red'))
-```
+
 # Fibroblast subset
 ```{r}
 ipf3.fib.xen <- subset(ipf3.filtered.xen, idents=c(0,5,9,15))
