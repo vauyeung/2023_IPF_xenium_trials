@@ -1,0 +1,493 @@
+---
+title: "IPF Trial run analysis on slide 0020866"
+output:
+  github_document:
+    toc: true
+  html_notebook:
+    toc: true
+---
+
+This is a slide that was run in May 2024. The slide has punch biopsies arrayed, with 7 IPF samples and 3 normal samples. 
+
+# Environment
+```{r, results=F}
+library(Seurat)
+library(tidyverse)
+```
+
+# Read in Xenium 
+```{r}
+ipfArray1.xen <- LoadXenium('~/vcalab-files/datasets/IPF_xenium_trials_2023/output-XETG00143__0020866__Region_1__20240516__205940/')
+```
+
+## Add metadata 
+This slide is a tissue array so need to specify which cells are from which piece of tissue, disease, etc.
+In xenium viewer, the selection tool draws a region of interest and allows this region to be given a name.
+Each core was identified in the Xenium viewer as "selections" and exported to csv file containing the cell barcodes
+Selection file starts with 2 comment lines, selection name and Area. Will pull selection name as the item to ID
+
+### helper function
+```{r}
+addSelectionNamesToXen <- function(csvlist, xenobj, meta.name) {
+  # Accepts a list of filepaths pointing to CSV files from xenium viewer
+  # CSV file should be exported from selection cells and first column should be cell barcode called Cell.ID
+  # Assumes that selection name defined in xenium viewer is the name for Seurat object
+  # Returns xenium object with added metadata variable with whatever supplied for meta.name
+  lookup <- c()
+  for (csvfile in csvlist) {
+    name <- read.table(csvfile, nrows=1, header=F, comment.char='')$V3
+    barcodes <- read.table(csvfile, sep=',', header=T)$Cell.ID
+    lookup[barcodes] <- name
+  }
+  
+  assignments <- unname(lookup[rownames(xenobj[[]])])
+  assignments <- replace_na(assignments,'unassigned')
+  xenobj[[meta.name]] <- assignments
+  return(xenobj)
+}
+```
+
+### Add sample metadata
+```{r}
+regions.csv.paths <- paste0('~/vcalab-files/datasets/IPF_xenium_trials_2023/output-XETG00143__0020866__Region_1__20240516__205940/regions/',
+                            list.files('~/vcalab-files/datasets/IPF_xenium_trials_2023/output-XETG00143__0020866__Region_1__20240516__205940/regions', pattern='.csv')
+)
+
+ipfArray1.xen <- addSelectionNamesToXen(regions.csv.paths, ipfArray1.xen, 'Sample')
+```
+
+### Add disease metadata
+```{r}
+ipfArray1.xen$Dx <- unlist(lapply(ipfArray1.xen$Sample, function(x){
+  if(startsWith(x,'IPF')) {return('IPF')} else if(startsWith(x,'N')) {return('Control')} else {return('unassigned')}
+}))
+```
+
+
+
+# Identify cells as if normal single cell
+
+An important caveat to this dataset is that these cells all come from different tissues and may need some kind of batch correction. 
+
+## Baseline characteristics by sample
+```{r}
+VlnPlot(ipfArray1.xen, features='nCount_Xenium', group.by = 'Sample', pt.size = 0, y.max=500)
+VlnPlot(ipfArray1.xen, features='nFeature_Xenium', group.by = 'Sample', pt.size = 0, y.max=150)
+VlnPlot(ipfArray1.xen, features='nCount_ControlProbe', group.by = 'Sample', pt.size = 0)
+```
+
+
+## Subset somewhat strictly on feature count
+On the theory that if there was only few features, but they had counts, it is probably still interpretable.
+```{r}
+ipfArray1.filtered.xen <- subset(ipfArray1.xen, subset=nCount_Xenium>20 & nFeature_Xenium>4)
+```
+
+How many cells did we filter out?
+```{r}
+print('original dataset:')
+print(ncol(ipfArray1.xen))
+print('filtered dataset:')  
+print(ncol(ipfArray1.filtered.xen))
+```
+
+### Check characteristics of removed cells
+```{r}
+losers.xen <- subset(ipfArray1.xen, subset=nCount_Xenium<=20 | nFeature_Xenium<=4)
+```
+```{r}
+print('Number of cells removed by sample')
+table(losers.xen$Sample)
+print('Proportion of cells removed by sample')
+table(losers.xen$Sample)/ncol(losers.xen)
+print('Proportion of cells in original dataset')
+table(ipfArray1.xen$Sample)/ncol(ipfArray1.xen)
+```
+
+
+## Analyze without batch/sample information
+```{r}
+ipfArray1.filtered.xen <- NormalizeData(ipfArray1.filtered.xen)
+ipfArray1.filtered.xen <- FindVariableFeatures(ipfArray1.filtered.xen)
+ipfArray1.filtered.xen <- ScaleData(ipfArray1.filtered.xen)
+ipfArray1.filtered.xen <- RunPCA(ipfArray1.filtered.xen, features = rownames(ipfArray1.filtered.xen))
+ipfArray1.filtered.xen <- RunUMAP(ipfArray1.filtered.xen, dims = 1:30)
+```
+```{r}
+ElbowPlot(ipfArray1.filtered.xen)
+DimHeatmap(ipfArray1.filtered.xen, dims = 1:3, cells = 100, balanced = TRUE)
+DimHeatmap(ipfArray1.filtered.xen, dims = 4:6, cells = 100, balanced = TRUE)
+DimHeatmap(ipfArray1.filtered.xen, dims = 7:9, cells = 100, balanced = TRUE)
+```
+
+```{r}
+# modification to reduce cluster number. i think the sparsity of data means that pruned edges leads to more communities.
+ipfArray1.filtered.xen <- FindNeighbors(ipfArray1.filtered.xen, reduction='pca', dims=1:30, prune.SNN=0) 
+ipfArray1.filtered.xen <- FindClusters(ipfArray1.filtered.xen, resolution = 0.6)
+```
+```{r}
+DimPlot(ipfArray1.filtered.xen, group.by = 'Sample')
+DimPlot(ipfArray1.filtered.xen, group.by = 'Dx', order = 'Control')
+DimPlot(ipfArray1.filtered.xen, label=T)
+```
+
+
+```{r, fig.width=6, fig.height=8}
+FeaturePlot(ipfArray1.filtered.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "TNFAIP3", "IFITM1"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("AGR2", "ITGB6", "XBP1", "ABCA3", "KRT8", "CLDN4"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("EPCAM", "IRF1", "VEGFA", "GDF15", "FKBP5", "PDGFRA"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("MKI67", "COL1A1", "TOP2A", "CDK1", "CENPF", "CCNB2"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("RGS5", "MYH11", "PI16", "CDK1", "POSTN", "CCNB2"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("MUC1", "ABCA3", "KRT5", "TP63", "SCGB3A2", "CCNB2"), min.cutoff='q1', max.cutoff='q90')
+```
+
+## Analyze with split layers (i.e., normalize within batch/sample)
+
+```{r}
+ipfArray1.filtered.xen[['Xenium']] <- split(ipfArray1.filtered.xen[['Xenium']], f=ipfArray1.filtered.xen$Sample)
+```
+
+Redo dimensional reduction etc.
+
+```{r}
+ipfArray1.filtered.xen <- NormalizeData(ipfArray1.filtered.xen)
+ipfArray1.filtered.xen <- FindVariableFeatures(ipfArray1.filtered.xen)
+ipfArray1.filtered.xen <- ScaleData(ipfArray1.filtered.xen)
+ipfArray1.filtered.xen <- RunPCA(ipfArray1.filtered.xen, features = rownames(ipfArray1.filtered.xen))
+ipfArray1.filtered.xen <- RunUMAP(ipfArray1.filtered.xen, dims = 1:30)
+```
+
+```{r}
+# modification to reduce cluster number. i think the sparsity of data means that pruned edges leads to more communities.
+ipfArray1.filtered.xen <- FindNeighbors(ipfArray1.filtered.xen, reduction='pca', dims=1:30, prune.SNN=0) 
+ipfArray1.filtered.xen <- FindClusters(ipfArray1.filtered.xen, resolution = 0.6)
+```
+```{r}
+DimPlot(ipfArray1.filtered.xen, group.by = 'Sample')
+DimPlot(ipfArray1.filtered.xen, group.by = 'Dx', order = 'Control')
+DimPlot(ipfArray1.filtered.xen, label=T)
+```
+
+
+
+## Batch adjustment by sample
+```{r}
+ipfArray1.filtered.xen <- IntegrateLayers(object = ipfArray1.filtered.xen, method = HarmonyIntegration, orig.reduction = "pca", new.reduction = "integrated.harmony",
+                                          assay='Xenium',
+                                          verbose = FALSE)
+```
+Will defer rejoining of layers for now.
+
+```{r}
+ipfArray1.filtered.xen <- RunUMAP(ipfArray1.filtered.xen, reduction='integrated.harmony', dims = 1:30)
+```
+
+```{r}
+# modification to reduce cluster number. i think the sparsity of data means that pruned edges leads to more communities.
+ipfArray1.filtered.xen <- FindNeighbors(ipfArray1.filtered.xen, reduction='integrated.harmony', dims=1:30, prune.SNN=0) 
+ipfArray1.filtered.xen <- FindClusters(ipfArray1.filtered.xen, resolution = 0.6)
+```
+
+```{r}
+DimPlot(ipfArray1.filtered.xen, group.by = 'Sample')
+DimPlot(ipfArray1.filtered.xen, group.by = 'Dx', order = 'Control')
+DimPlot(ipfArray1.filtered.xen, label=T)
+```
+
+```{r, fig.width=6, fig.height=8}
+FeaturePlot(ipfArray1.filtered.xen, features = c("nFeature_Xenium", "nCount_Xenium", "nCount_ControlProbe", "nFeature_ControlProbe"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A", "TNFAIP3", "IFITM1"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("AGR2", "ITGB6", "XBP1", "ABCA3", "KRT8", "CLDN4"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("EPCAM", "IRF1", "VEGFA", "GDF15", "FKBP5", "PDGFRA"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("MKI67", "COL1A1", "TOP2A", "CDK1", "CENPF", "CCNB2"), min.cutoff='q1', max.cutoff='q90')
+FeaturePlot(ipfArray1.filtered.xen, features = c("RGS5", "MYH11", "PI16", "CDK1", "POSTN", "CCNB2"), min.cutoff='q1', max.cutoff='q90')
+```
+
+
+# Reference mapping by IPF Cell Atlas
+
+## Read in IPF Cell Atlas GSE136831
+```{r}
+original.dir <- ('~/vcalab-files/datasets/GSE136831_IPF_Cell_Atlas/')
+metadata <- read_tsv(paste0(original.dir,'GSE136831_AllCells.Samples.CellType.MetadataTable.txt.gz'))
+metadata <- as.data.frame(metadata)
+rownames(metadata) <- metadata$CellBarcode_Identity
+
+features <- read_tsv(paste0(original.dir,'GSE136831_AllCells.GeneIDs.txt.gz'))
+cells <- read_tsv(paste0(original.dir,'GSE136831_AllCells.cellBarcodes.txt.gz'), col_names = F)
+
+counts <- Matrix::readMM(paste0(original.dir,'GSE136831_RawCounts_Sparse.mtx.gz'))
+rownames(counts) <- features$HGNC_EnsemblAlt_GeneID
+colnames(counts) <- cells$X1
+
+ipfatlas.cells <- CreateSeuratObject(counts=counts, meta.data=metadata)
+
+rm(counts,cells,features,metadata)
+gc()
+```
+```{r}
+# restrict genes in ipfatlas to those genes in xenium
+ipfatlas.cells <- subset(ipfatlas.cells, features=rownames(ipfArray1.filtered.xen))
+```
+
+
+```{r}
+# routine processing
+ipfatlas.cells <- NormalizeData(ipfatlas.cells)
+ipfatlas.cells <- FindVariableFeatures(ipfatlas.cells)
+ipfatlas.cells <- ScaleData(ipfatlas.cells, features=rownames(ipfatlas.cells))
+ipfatlas.cells <- RunPCA(ipfatlas.cells)
+ipfatlas.cells <- RunUMAP(ipfatlas.cells, dims=1:30)
+```
+
+
+## Reference mapping
+
+In previous iterations it was clear that the "Multiplet" group in the IPF cell atlas ended up corresponding to AT2/AT1 compartment in Xenium. So remove multiplet to avoid misassigning Xenium cells to artifacts in the atlas.
+
+```{r}
+ipfatlas.cells <- subset(ipfatlas.cells, subset=CellType_Category=='Multiplet', invert=T)
+ipfatlas.cells <- subset(ipfatlas.cells, subset=Manuscript_Identity=='Multiplet', invert=T)
+```
+
+
+```{r}
+ipfatlas.anchors <- FindTransferAnchors(reference = ipfatlas.cells, query = ipfArray1.filtered.xen, dims = 1:30,
+                                        reference.reduction = "pca",
+                                        features=rownames(ipfArray1.filtered.xen)) # restrict features used for prediction to genes in Xen dataset
+# Add top level categories
+predictions1 <- TransferData(anchorset = ipfatlas.anchors, refdata = ipfatlas.cells$CellType_Category, dims = 1:30)
+ipfArray1.filtered.xen <- AddMetaData(ipfArray1.filtered.xen, metadata = predictions1$predicted.id, col.name='ipfatlas.CellType_Category')
+
+# Add published labels
+predictions2 <- TransferData(anchorset = ipfatlas.anchors, refdata = ipfatlas.cells$Manuscript_Identity, dims = 1:30)
+ipfArray1.filtered.xen <- AddMetaData(ipfArray1.filtered.xen, metadata = predictions2$predicted.id, col.name='ipfatlas.Manuscript_Identity')
+
+```
+
+## Reference mapping results
+
+```{r}
+DimPlot(ipfArray1.filtered.xen, group.by = 'ipfatlas.CellType_Category')
+ggplot(predictions1, aes(factor(predicted.id), prediction.score.max)) + geom_violin(aes(fill=factor(predicted.id)))
+```
+```{r}
+DimPlot(ipfArray1.filtered.xen, group.by = 'ipfatlas.Manuscript_Identity')
+ggplot(predictions2, aes(factor(predicted.id), prediction.score.max)) + geom_violin(aes(fill=factor(predicted.id)))
+```
+
+## Export for Xenium Viewer
+
+```{r}
+scratch <- tibble(cell_id = names(ipfArray1.filtered.xen$ipfatlas.CellType_Category),
+                      group = ipfArray1.filtered.xen$ipfatlas.CellType_Category)
+write.csv(scratch, 'ipfArray1.filtered.xen_ipfatlas.CellType_Category.csv')
+```
+```{r}
+scratch <- tibble(cell_id = names(ipfArray1.filtered.xen$ipfatlas.Manuscript_Identity),
+                      group = ipfArray1.filtered.xen$ipfatlas.Manuscript_Identity)
+write.csv(scratch, 'ipfArray1.filtered.xen_ipfatlas.Manuscript_Identity.csv')
+```
+
+
+# Subset epithelium
+```{r}
+ipfArray1.epi.xen <- subset(ipfArray1.filtered.xen, idents=c(0,1,6,12,13,14))
+```
+
+
+# Subset fibroblasts
+```{r}
+ipfArray1.fib.xen <- subset(ipfArray1.filtered.xen, idents=c(0,1,6,12,13,14))
+```
+## Recluster and reintegrate
+
+```{r}
+ipfArray1.fib.xen <- NormalizeData(ipfArray1.fib.xen, verbose=F)
+ipfArray1.fib.xen <- FindVariableFeatures(ipfArray1.fib.xen, verbose=F) # defaults to finding 2000, which would be all of them, but downstream expects this.
+ipfArray1.fib.xen <- ScaleData(ipfArray1.fib.xen, verbose=F)
+ipfArray1.fib.xen <- RunPCA(ipfArray1.fib.xen, npcs = 30, features = rownames(ipfArray1.fib.xen), verbose=F)
+ipfArray1.fib.xen <- IntegrateLayers(object = ipfArray1.fib.xen, method = HarmonyIntegration, orig.reduction = "pca", new.reduction = "integrated.harmony",
+                                          assay='Xenium',
+                                          verbose = FALSE)
+ipfArray1.fib.xen <- RunUMAP(ipfArray1.fib.xen, reduction='integrated.harmony', dims = 1:30)
+
+# modification to reduce cluster number. i think the sparsity of data means that pruned edges leads to more communities.
+ipfArray1.fib.xen <- FindNeighbors(ipfArray1.fib.xen, reduction='integrated.harmony', dims=1:30, prune.SNN=0) 
+ipfArray1.fib.xen <- FindClusters(ipfArray1.fib.xen, resolution = 0.6)
+```
+```{r}
+DimPlot(ipfArray1.fib.xen, group.by = 'Sample')
+DimPlot(ipfArray1.fib.xen, group.by = 'Dx', order = 'Control')
+DimPlot(ipfArray1.fib.xen, label=T)
+```
+
+```{r}
+FeaturePlot(ipfArray1.fib.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A"), min.cutoff='q1', max.cutoff='q90', order=T)
+FeaturePlot(ipfArray1.fib.xen, features = c("COL1A1", "VEGFD", "SAA1", "CYP4B1"), min.cutoff='q1', max.cutoff='q90', order=T)
+FeaturePlot(ipfArray1.fib.xen, features = c("CXCL12", "SFRP2", "CXCL14", "TGFBI"), min.cutoff='q1', max.cutoff='q90', order=T)
+FeaturePlot(ipfArray1.fib.xen, features = c('COL1A1', "MKI67", "TOP2A", "CDK1"), min.cutoff='q1', max.cutoff='q90', order=T)
+FeaturePlot(ipfArray1.fib.xen, features = c('COL1A1', "CENPF", "CCNB2",'KIT'), min.cutoff='q1', max.cutoff='q90', order=T)
+FeaturePlot(ipfArray1.fib.xen, features = c("RGS5", "MYH11", "PI16","POSTN"), min.cutoff='q1', max.cutoff='q90', order=T)
+```
+
+Drop clusters 6 and 8 and redo
+
+```{r}
+ipfArray1.fib.xen <- subset(ipfArray1.fib.xen, idents = c(6,8), invert=T)
+```
+
+```{r}
+ipfArray1.fib.xen <- NormalizeData(ipfArray1.fib.xen, verbose=F)
+ipfArray1.fib.xen <- FindVariableFeatures(ipfArray1.fib.xen, verbose=F) # defaults to finding 2000, which would be all of them, but downstream expects this.
+ipfArray1.fib.xen <- ScaleData(ipfArray1.fib.xen, verbose=F)
+ipfArray1.fib.xen <- RunPCA(ipfArray1.fib.xen, npcs = 30, features = rownames(ipfArray1.fib.xen), verbose=F)
+ipfArray1.fib.xen <- IntegrateLayers(object = ipfArray1.fib.xen, method = HarmonyIntegration, orig.reduction = "pca", new.reduction = "integrated.harmony",
+                                          assay='Xenium',
+                                          verbose = FALSE)
+ipfArray1.fib.xen <- RunUMAP(ipfArray1.fib.xen, reduction='integrated.harmony', dims = 1:30, verbose=F)
+
+# modification to reduce cluster number. i think the sparsity of data means that pruned edges leads to more communities.
+ipfArray1.fib.xen <- FindNeighbors(ipfArray1.fib.xen, reduction='integrated.harmony', dims=1:30, prune.SNN=0) 
+ipfArray1.fib.xen <- FindClusters(ipfArray1.fib.xen, resolution = 1)
+```
+
+```{r}
+DimPlot(ipfArray1.fib.xen, group.by = 'Sample', pt.size=1.5)
+DimPlot(ipfArray1.fib.xen, group.by = 'Dx', order = 'Control')
+DimPlot(ipfArray1.fib.xen, label=T)
+```
+
+```{r}
+FeaturePlot(ipfArray1.fib.xen, features = c("COL1A1", "CTHRC1", "INMT", "SCN7A"), min.cutoff='q1', max.cutoff='q90', order=T, pt.size=2)
+FeaturePlot(ipfArray1.fib.xen, features = c( "VEGFD","CYP4B1","ASPN","BCHE"), min.cutoff='q1', max.cutoff='q90', order=T, pt.size=2)
+FeaturePlot(ipfArray1.fib.xen, features = c("CXCL12", "SFRP2", "CXCL14", "TGFBI"), min.cutoff='q1', max.cutoff='q90', order=T, pt.size=2)
+FeaturePlot(ipfArray1.fib.xen, features = c('COL1A1', "MKI67", "TOP2A", "CDK1"), min.cutoff='q1', max.cutoff='q50', order=T, pt.size=2)
+FeaturePlot(ipfArray1.fib.xen, features = c('COL1A1', "CENPF", "CCNB2",'KIT'), min.cutoff='q1', max.cutoff='q50', order=T, pt.size=2)
+FeaturePlot(ipfArray1.fib.xen, features = c("RGS5", "MYH11", "PI16","POSTN"), min.cutoff='q1', max.cutoff='q90', order=T, pt.size=2)
+```
+
+### Name fibroblast clusters and export to Xenium Viewer
+
+```{r}
+ipfArray1.fib.xen <- RenameIdents(object=ipfArray1.fib.xen,
+                                  `0`='Smooth Muscle',
+                                  `1`='Fib:Alveolar1',
+                                  `2`='Fib:Alveolar2',
+                                  `3`='Fib:Mixed?',
+                                  `4`='Fib:CTHRC1',
+                                  `5`='Fib:Inflammatory',
+                                  `6`='Pericyte1',
+                                  `7`='Pericyte2',
+                                  `8`='Pericyte3',
+                                  `9`='Fib:Adventitial',
+                                  `10`='Fib:Proliferating')
+ipfArray1.fib.xen$named_clusters <- Idents(ipfArray1.fib.xen)
+```
+
+```{r}
+scratch <- tibble(cell_id = names(ipfArray1.fib.xen$named_clusters),
+                      group = ipfArray1.fib.xen$named_clusters)
+write.csv(scratch, 'ipfArray1.fib.xen_named_clusters.csv')
+```
+
+### Create proliferation module score
+```{r}
+ipfArray1.fib.xen[["Xenium"]] <- JoinLayers(ipfArray1.fib.xen[["Xenium"]])
+ipfArray1.fib.xen <- AddModuleScore(ipfArray1.fib.xen, features=c("CENPF", "CCNB2",'KIT',"MKI67", "TOP2A", "CDK1" ),
+                                    assay='Xenium',name='Proliferation', ctrl=15)
+```
+```{r}
+FeaturePlot(ipfArray1.fib.xen, features = c("Proliferation6"), min.cutoff='q1', max.cutoff='q70', order=T, pt.size=2)
+
+```
+
+
+
+```{r}
+DimPlot(ipfArray1.fib.xen)
+DimPlot(ipfArray1.fib.xen, group.by = 'Sample')
+```
+```{r, fig.width=6, fig.height=8}
+FeaturePlot(ipfArray1.fib.xen, features=c('COL1A1','CTHRC1','SCN7A','PI16','RGS5', 'MYH11'),
+            min.cutoff='q1', max.cutoff='q80', order=F)
+
+FeaturePlot(ipfArray1.fib.xen, features=c('RGS5','MYH11','CNN1','SFRP2'),
+            min.cutoff='q1', max.cutoff='q99', order=F)
+FeaturePlot(ipfArray1.fib.xen, features=c('CCNA1','CCNB2','MKI67','CENPF'),
+            min.cutoff='q1', max.cutoff='q99', order=F)
+```
+
+
+# Seurat built-in niche analysis
+
+## Niche analysis based on mapped IPF Atlas identities 
+```{r}
+ipfArray1.filtered.xen <- BuildNicheAssay(object = ipfArray1.filtered.xen, fov = "fov", group.by = "ipfatlas.Manuscript_Identity",
+    niches.k = 12, neighbors.k = 40)
+gc()
+```
+```{r}
+table(ipfArray1.filtered.xen$ipfatlas.Manuscript_Identity, ipfArray1.filtered.xen$niches)
+```
+
+```{r}
+cropped.coords <- Crop(ipfArray1.xen[["fov"]], x = c(1000, 2000), y = c(8000, 9000), coords = "plot")
+ipfArray1.filtered.xen[["fibfocus1"]] <- cropped.coords
+# visualize cropped area with cell segmentations & selected molecules
+DefaultBoundary(ipfArray1.filtered.xen[["fibfocus1"]]) <- "segmentation"
+```
+
+```{r}
+ImageDimPlot(ipfArray1.filtered.xen, fov = "fibfocus1", axes = TRUE, border.color = "white", border.size = 0.1, cols = "polychrome",
+    group.by='niches') + coord_flip() + scale_x_reverse()
+```
+
+## Meta-niches
+As we've previously seen, Seurat niche discovery has a strong tendecy to find aggregates of cells of the same type, illustrated by the epithelial rim and the fibroblast core coming out as separate.
+Maybe try a niche analysis on niches, to find maybe co-occurrence of aberrant basaloid niche with fibroblasts and whatever those immune clusters are.
+
+```{r}
+# stow cell niches in a safe place
+ipfArray1.filtered.xen$cellniches <- ipfArray1.filtered.xen$niches
+```
+```{r}
+ipfArray1.filtered.xen <- BuildNicheAssay(object = ipfArray1.filtered.xen, fov = "fov", group.by = "cellniches",
+    niches.k = 8, neighbors.k = 200)
+```
+```{r}
+ImageDimPlot(ipfArray1.filtered.xen, fov = "fibfocus1", axes = TRUE, border.color = "white", border.size = 0.1, cols = "polychrome",
+    group.by='niches') + coord_flip() + scale_x_reverse()
+```
+
+
+# Examine data as if spatial
+
+## Generate assignments file for Xenium Explorer
+For version 1.2.0, the instructons say:
+
+"Visualize custom cells groups in Xenium Explorer by importing a CSV file specifying cell ids and corresponding group names. Build a CSV file containing each cell id in the first column and the group the cell should be assigned to in the second column. A cell may only be assigned to one group. Not all cells in the dataset need to be included.
+
+Ensure the columns have headers named “cell_id” and “group”."
+
+This is basically the named_clusters list with a header and saved as a CSV.
+
+```{r}
+scratch <- tibble(cell_id = names(ipfArray1.xen$named_clusters),
+                      group = ipfArray1.xen$named_clusters)
+write.csv(scratch, 'Seurat_named_clusters.csv')
+```
+
+## Imaging within Seurat
+Found a region within Xenium explorer and figured the coordinates.
+
+```{r}
+cropped.coords <- Crop(ipfArray1.xen[["fov"]], x = c(1400, 1900), y = c(6400, 7000), coords = "plot")
+ipfArray1.xen[["zoom"]] <- cropped.coords
+# visualize cropped area with cell segmentations & selected molecules
+DefaultBoundary(ipfArray1.xen[["zoom"]]) <- "segmentation"
+ImageDimPlot(ipfArray1.xen, fov = "zoom", axes = TRUE, border.color = "white", border.size = 0.1, cols = "polychrome",
+    coord.fixed = FALSE, molecules = c("ITGB6", "GDF15", "CTHRC1", "ABCA3", "CLDN4"), nmols = 10000)
+```
+
